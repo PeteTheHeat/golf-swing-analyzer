@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "dirk-oosterveer-1939-iron",
+  "title": "Dirk Oosterveer demonstreert staaltjes van golftechniek",
+  "publicationYear": 1939,
+  "golfer": "Dirk Oosterveer",
+  "producer": "Polygoon-Profilti",
+  "manager": "Nederlands Instituut voor Beeld en Geluid",
+  "sourceRecordURL": "https://commons.wikimedia.org/wiki/File:Dirk_Oosterveer_demonstreert_staaltjes_van_golftechniek_Weeknummer_39-16_-_Open_Beelden_-_30179.ogv",
+  "originalArchiveRecordURL": "https://www.openbeelden.nl/media/30179/Dirk_Oosterveer_demonstreert_staaltjes_van_golftechniek",
+  "sourceDownloadURL": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Dirk_Oosterveer_demonstreert_staaltjes_van_golftechniek_Weeknummer_39-16_-_Open_Beelden_-_30179.ogv",
+  "sourceSHA256": "d53cce215b59f519edcbdf5dc5563f21b9cff091410fef78340974216f6a016a",
+  "licenseName": "Creative Commons Attribution-ShareAlike 3.0 Netherlands",
+  "licenseURL": "https://creativecommons.org/licenses/by-sa/3.0/nl/deed.en",
+  "adaptedFile": "dirk-oosterveer-1939-cc-by-sa-3.0-nl.mp4",
+  "adaptedSHA256": "71e48fdb296e339f36c3223b61d581b98eb99b4d53a05f054556898e54fd5739",
+  "adaptation": {
+    "startSeconds": 12.5,
+    "endSeconds": 15.8,
+    "changes": [
+      "trimmed",
+      "audio removed",
+      "transcoded from Theora to H.264",
+      "container metadata removed",
+      "fast-start metadata added"
+    ]
+  },
+  "video": {
+    "durationSeconds": 3.32,
+    "width": 352,
+    "height": 288,
+    "framesPerSecond": 25,
+    "cameraView": "rearObliqueNearDownTheLine",
+    "handedness": "right",
+    "club": "midIron"
+  },
+  "noEndorsement": true
+}
