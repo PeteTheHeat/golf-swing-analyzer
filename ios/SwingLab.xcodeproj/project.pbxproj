@@ -1,0 +1,705 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		072191F9F045FE74943DF2D4 /* VideoThumbnailGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A31AB1239BC6709C3A03690 /* VideoThumbnailGenerator.swift */; };
+		0979B6F712E849344253C764 /* VideoPlayerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2670A02B4745665D76B5277D /* VideoPlayerController.swift */; };
+		0B0210B7CFBA1C1CE7B0FEEC /* SwingReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A3AA865A9B414ACB08614C /* SwingReviewView.swift */; };
+		106C2AC5E126D16D75CE93DF /* SwingFindingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437F9A7BCA94D96062417C0C /* SwingFindingEngine.swift */; };
+		1A6E3CAFB6165EFEF12BC8CD /* SavedSwingReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBB7439B899BE2A4F6DCE9EE /* SavedSwingReviewView.swift */; };
+		1F7017289263D9F14333A924 /* AppAndPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CABF67C8C5C70F6670CE403 /* AppAndPersistenceTests.swift */; };
+		20B2409377ABE7B28498EDBF /* ReferenceMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018FAB3C12EF7C8EFE4A25EC /* ReferenceMatcherTests.swift */; };
+		218859C64DE69DE6020BB249 /* SwingAnalysisProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4127A30FE1A83CF1D42E5B32 /* SwingAnalysisProgress.swift */; };
+		2E28364CF13A88CC60DD36DE /* PoseSmoother.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0E77930CBBBDADAD732565 /* PoseSmoother.swift */; };
+		2F52FF96695882B0E3204CA6 /* SwingLabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16A7BBA2EB58D450A7D2FC53 /* SwingLabApp.swift */; };
+		31F66417FFBDC4DAE0B912C1 /* SwingPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7685689282AB478B7C73635 /* SwingPersistence.swift */; };
+		37DCB2F3275982ABB6194858 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B27361434FCE22EA4DAB2C8F /* PrivacyInfo.xcprivacy */; };
+		4AB8120BECB57DE0410FA1C0 /* VideoPoseExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474D078D12BE7B2D75F33E83 /* VideoPoseExtractor.swift */; };
+		4B465E45720EC6B621D00F69 /* SwingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E682BA7E3F0B9BBFACB5B1D /* SwingComponents.swift */; };
+		4D54373792BDAEDACB78B139 /* TrimTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AEB7A7DC58B013854895304 /* TrimTimelineView.swift */; };
+		4DCCD3755EE0725843890318 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 376F819CA45759D33784D0D7 /* Assets.xcassets */; };
+		589A234023E596AF5054B6AD /* SwingMetricsCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C75B633CED3666F3C164D6D /* SwingMetricsCalculator.swift */; };
+		5BD08334A3973FE892CD3864 /* SwingEventDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC08C22E7019114F70788CA8 /* SwingEventDetector.swift */; };
+		5CAD46601C6C967F32D06CB1 /* AnalysisFlowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F4897C71558C579CB2B691 /* AnalysisFlowModel.swift */; };
+		6EF3C80C0645E085E46F5DFC /* SwingAnalysisTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE905212204F069278D00000 /* SwingAnalysisTypes.swift */; };
+		78B30031C66AACAE6848147B /* SwingComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D14AC5ED08FDD2E33D0CAB /* SwingComparisonView.swift */; };
+		7C3F6FF6B3A3CD66DFF4B515 /* ReferenceSwing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DEDF648A4CF7507A3DDE49 /* ReferenceSwing.swift */; };
+		7FE2EFF6A458E83D4583A603 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2967975FC16FCDE49599B7 /* VideoPlayerView.swift */; };
+		810364BA20E9E81F95714760 /* PoseOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0712057F329E33F390C8984A /* PoseOverlayView.swift */; };
+		9175E2D31BCCA8AC389DECC6 /* SwingSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFA7D498A646B39E863B41FD /* SwingSession.swift */; };
+		937F470FD6F39B8DE6FA222F /* PoseGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DEBF0BBBEE57877F75FFE52 /* PoseGeometry.swift */; };
+		9B417E95209CE6499B83B5B2 /* ReviewWithComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD21EC06F0387343A7774475 /* ReviewWithComparisonView.swift */; };
+		A92D1EC13B62793FB41C0692 /* ImportedVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B258AE0A39AE4DFA36F704E /* ImportedVideo.swift */; };
+		B8C14299AE8A2104FC896F71 /* AnalysisFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 923D6FD76A7A980AC80A6CA5 /* AnalysisFlowView.swift */; };
+		B9A3B3CA215FD7AABAB47F38 /* TrimSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 907647626B6995FFC7ED4EE5 /* TrimSelectionTests.swift */; };
+		BE12B007540AB1BEB9777CE4 /* SimulatorPoseFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88EB68CD86B406404A830868 /* SimulatorPoseFixture.swift */; };
+		C4F50C7AEBC3B3ABDED49415 /* SwingScoreRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB50DA50C6FB217DA3BED1BB /* SwingScoreRing.swift */; };
+		C63B9F4E24795D4106772352 /* SwingContextInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BB92F614554E8347C4E154 /* SwingContextInput.swift */; };
+		CADCE90B2CD47865D40D63C4 /* TrimSwingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74A659451B905C76A09A94B /* TrimSwingView.swift */; };
+		CFC037B337C04532AA2FB0BE /* VideoImportModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C25565D08E67AB899369E13 /* VideoImportModel.swift */; };
+		D24C705B96741390293BDC36 /* MediaStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8A4C2B8D5382B574A6FFE5 /* MediaStorage.swift */; };
+		D52415E5531E99EE2C5808B9 /* SwingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8315D2051038F7BABC17B7A /* SwingTheme.swift */; };
+		D61F9D25CCE9D13C045747D9 /* PoseTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DECFEA3F24E4A7F3BCA98B3 /* PoseTypes.swift */; };
+		D7A4CA00180132BAB23711BE /* GeometryAndAnalysisTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696152C561C0725ED284BF3C /* GeometryAndAnalysisTests.swift */; };
+		DDAAEDCB523800E8D0B8BC6B /* SwingAnalysisPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CACB66AC7217B92020D8CD5 /* SwingAnalysisPipeline.swift */; };
+		E7EAB901562031DA98BF80DA /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4F80572AFE8CBCCA18519 /* RootTabView.swift */; };
+		EFD706FA076A236B630A8B76 /* ImportTrimView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C6376DB26E8DC67A721565 /* ImportTrimView.swift */; };
+		FA9BEFF150499F4FE1C285DB /* TrimSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00AB6B8247265D18A4404AF /* TrimSelection.swift */; };
+		FBE6DE868D2E22FCBBBFA635 /* VideoFileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 921DDC9F77A39AD6F3AC62B3 /* VideoFileTransfer.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E82155F6983EBB363701E287 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CBF6596A4733A94F0E05C8DF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8065F0C300432653BAEE94FF;
+			remoteInfo = SwingLab;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		018FAB3C12EF7C8EFE4A25EC /* ReferenceMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceMatcherTests.swift; sourceTree = "<group>"; };
+		0712057F329E33F390C8984A /* PoseOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseOverlayView.swift; sourceTree = "<group>"; };
+		0B0E77930CBBBDADAD732565 /* PoseSmoother.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseSmoother.swift; sourceTree = "<group>"; };
+		0CABF67C8C5C70F6670CE403 /* AppAndPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAndPersistenceTests.swift; sourceTree = "<group>"; };
+		16A7BBA2EB58D450A7D2FC53 /* SwingLabApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingLabApp.swift; sourceTree = "<group>"; };
+		2670A02B4745665D76B5277D /* VideoPlayerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerController.swift; sourceTree = "<group>"; };
+		2DECFEA3F24E4A7F3BCA98B3 /* PoseTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseTypes.swift; sourceTree = "<group>"; };
+		34D14AC5ED08FDD2E33D0CAB /* SwingComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingComparisonView.swift; sourceTree = "<group>"; };
+		376F819CA45759D33784D0D7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		38D3DE479FC6D4966EA53269 /* SwingLab.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SwingLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3B258AE0A39AE4DFA36F704E /* ImportedVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedVideo.swift; sourceTree = "<group>"; };
+		4127A30FE1A83CF1D42E5B32 /* SwingAnalysisProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingAnalysisProgress.swift; sourceTree = "<group>"; };
+		437F9A7BCA94D96062417C0C /* SwingFindingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingFindingEngine.swift; sourceTree = "<group>"; };
+		474D078D12BE7B2D75F33E83 /* VideoPoseExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPoseExtractor.swift; sourceTree = "<group>"; };
+		4A31AB1239BC6709C3A03690 /* VideoThumbnailGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoThumbnailGenerator.swift; sourceTree = "<group>"; };
+		583658F928A2F527598D59F2 /* SwingLabTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SwingLabTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C75B633CED3666F3C164D6D /* SwingMetricsCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingMetricsCalculator.swift; sourceTree = "<group>"; };
+		5CACB66AC7217B92020D8CD5 /* SwingAnalysisPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingAnalysisPipeline.swift; sourceTree = "<group>"; };
+		5E682BA7E3F0B9BBFACB5B1D /* SwingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingComponents.swift; sourceTree = "<group>"; };
+		66BB92F614554E8347C4E154 /* SwingContextInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingContextInput.swift; sourceTree = "<group>"; };
+		696152C561C0725ED284BF3C /* GeometryAndAnalysisTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometryAndAnalysisTests.swift; sourceTree = "<group>"; };
+		6AEB7A7DC58B013854895304 /* TrimTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrimTimelineView.swift; sourceTree = "<group>"; };
+		74B4F80572AFE8CBCCA18519 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
+		88EB68CD86B406404A830868 /* SimulatorPoseFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatorPoseFixture.swift; sourceTree = "<group>"; };
+		8C2967975FC16FCDE49599B7 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
+		8D8A4C2B8D5382B574A6FFE5 /* MediaStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaStorage.swift; sourceTree = "<group>"; };
+		8DEBF0BBBEE57877F75FFE52 /* PoseGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseGeometry.swift; sourceTree = "<group>"; };
+		907647626B6995FFC7ED4EE5 /* TrimSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrimSelectionTests.swift; sourceTree = "<group>"; };
+		921DDC9F77A39AD6F3AC62B3 /* VideoFileTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFileTransfer.swift; sourceTree = "<group>"; };
+		923D6FD76A7A980AC80A6CA5 /* AnalysisFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisFlowView.swift; sourceTree = "<group>"; };
+		9C25565D08E67AB899369E13 /* VideoImportModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoImportModel.swift; sourceTree = "<group>"; };
+		A5F4897C71558C579CB2B691 /* AnalysisFlowModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisFlowModel.swift; sourceTree = "<group>"; };
+		A74A659451B905C76A09A94B /* TrimSwingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrimSwingView.swift; sourceTree = "<group>"; };
+		AD21EC06F0387343A7774475 /* ReviewWithComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewWithComparisonView.swift; sourceTree = "<group>"; };
+		B27361434FCE22EA4DAB2C8F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B8315D2051038F7BABC17B7A /* SwingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingTheme.swift; sourceTree = "<group>"; };
+		BB50DA50C6FB217DA3BED1BB /* SwingScoreRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingScoreRing.swift; sourceTree = "<group>"; };
+		C4DEDF648A4CF7507A3DDE49 /* ReferenceSwing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceSwing.swift; sourceTree = "<group>"; };
+		CFA7D498A646B39E863B41FD /* SwingSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingSession.swift; sourceTree = "<group>"; };
+		D5C6376DB26E8DC67A721565 /* ImportTrimView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportTrimView.swift; sourceTree = "<group>"; };
+		DE905212204F069278D00000 /* SwingAnalysisTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingAnalysisTypes.swift; sourceTree = "<group>"; };
+		E00AB6B8247265D18A4404AF /* TrimSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrimSelection.swift; sourceTree = "<group>"; };
+		E3A3AA865A9B414ACB08614C /* SwingReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingReviewView.swift; sourceTree = "<group>"; };
+		F7685689282AB478B7C73635 /* SwingPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingPersistence.swift; sourceTree = "<group>"; };
+		FBB7439B899BE2A4F6DCE9EE /* SavedSwingReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedSwingReviewView.swift; sourceTree = "<group>"; };
+		FC08C22E7019114F70788CA8 /* SwingEventDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingEventDetector.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		003F4ED2F85922BAEEAAB4F7 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				376F819CA45759D33784D0D7 /* Assets.xcassets */,
+				B27361434FCE22EA4DAB2C8F /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		05DA66FB893EDD9E19FB2497 /* Pose */ = {
+			isa = PBXGroup;
+			children = (
+				8DEBF0BBBEE57877F75FFE52 /* PoseGeometry.swift */,
+				0B0E77930CBBBDADAD732565 /* PoseSmoother.swift */,
+				2DECFEA3F24E4A7F3BCA98B3 /* PoseTypes.swift */,
+				474D078D12BE7B2D75F33E83 /* VideoPoseExtractor.swift */,
+			);
+			path = Pose;
+			sourceTree = "<group>";
+		};
+		0C93B7F3BAD26E14B1379CE9 /* Flow */ = {
+			isa = PBXGroup;
+			children = (
+				A5F4897C71558C579CB2B691 /* AnalysisFlowModel.swift */,
+				923D6FD76A7A980AC80A6CA5 /* AnalysisFlowView.swift */,
+				AD21EC06F0387343A7774475 /* ReviewWithComparisonView.swift */,
+				FBB7439B899BE2A4F6DCE9EE /* SavedSwingReviewView.swift */,
+			);
+			path = Flow;
+			sourceTree = "<group>";
+		};
+		1DA1064832937C544E52D330 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				F7685689282AB478B7C73635 /* SwingPersistence.swift */,
+				CFA7D498A646B39E863B41FD /* SwingSession.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		3097A61982F02CD24D2FE689 /* Compare */ = {
+			isa = PBXGroup;
+			children = (
+				34D14AC5ED08FDD2E33D0CAB /* SwingComparisonView.swift */,
+			);
+			path = Compare;
+			sourceTree = "<group>";
+		};
+		3B817E289BF98CCCF9D55CC8 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				E665BE2D8A0B5944F4956FAF /* Media */,
+				05DA66FB893EDD9E19FB2497 /* Pose */,
+				43CD9EF948D124B824191881 /* Reference */,
+				84736BED97A61E0E03102190 /* Swing */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		43CD9EF948D124B824191881 /* Reference */ = {
+			isa = PBXGroup;
+			children = (
+				C4DEDF648A4CF7507A3DDE49 /* ReferenceSwing.swift */,
+			);
+			path = Reference;
+			sourceTree = "<group>";
+		};
+		5797FDEAD9A071370154C1B5 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				74B4F80572AFE8CBCCA18519 /* RootTabView.swift */,
+				16A7BBA2EB58D450A7D2FC53 /* SwingLabApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		5E05DB2E3651F19DBDDE14D6 /* ImportTrim */ = {
+			isa = PBXGroup;
+			children = (
+				D5C6376DB26E8DC67A721565 /* ImportTrimView.swift */,
+				66BB92F614554E8347C4E154 /* SwingContextInput.swift */,
+				E00AB6B8247265D18A4404AF /* TrimSelection.swift */,
+				A74A659451B905C76A09A94B /* TrimSwingView.swift */,
+				6AEB7A7DC58B013854895304 /* TrimTimelineView.swift */,
+				9C25565D08E67AB899369E13 /* VideoImportModel.swift */,
+			);
+			path = ImportTrim;
+			sourceTree = "<group>";
+		};
+		7D257461C1F4F3173566726D /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				EB63CFAD48D4CDE7E22DED9B /* Analysis */,
+				3097A61982F02CD24D2FE689 /* Compare */,
+				0C93B7F3BAD26E14B1379CE9 /* Flow */,
+				5E05DB2E3651F19DBDDE14D6 /* ImportTrim */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		84736BED97A61E0E03102190 /* Swing */ = {
+			isa = PBXGroup;
+			children = (
+				88EB68CD86B406404A830868 /* SimulatorPoseFixture.swift */,
+				5CACB66AC7217B92020D8CD5 /* SwingAnalysisPipeline.swift */,
+				4127A30FE1A83CF1D42E5B32 /* SwingAnalysisProgress.swift */,
+				DE905212204F069278D00000 /* SwingAnalysisTypes.swift */,
+				FC08C22E7019114F70788CA8 /* SwingEventDetector.swift */,
+				437F9A7BCA94D96062417C0C /* SwingFindingEngine.swift */,
+				5C75B633CED3666F3C164D6D /* SwingMetricsCalculator.swift */,
+			);
+			path = Swing;
+			sourceTree = "<group>";
+		};
+		92762084565226CDBEE0D372 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				5E682BA7E3F0B9BBFACB5B1D /* SwingComponents.swift */,
+				B8315D2051038F7BABC17B7A /* SwingTheme.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		94EA8B3078CCBE3C87E377DF /* SwingLabTests */ = {
+			isa = PBXGroup;
+			children = (
+				0CABF67C8C5C70F6670CE403 /* AppAndPersistenceTests.swift */,
+				696152C561C0725ED284BF3C /* GeometryAndAnalysisTests.swift */,
+				018FAB3C12EF7C8EFE4A25EC /* ReferenceMatcherTests.swift */,
+				907647626B6995FFC7ED4EE5 /* TrimSelectionTests.swift */,
+			);
+			path = SwingLabTests;
+			sourceTree = "<group>";
+		};
+		ABA096FB50B5A0B0CF78C5AC /* SwingLab */ = {
+			isa = PBXGroup;
+			children = (
+				5797FDEAD9A071370154C1B5 /* App */,
+				3B817E289BF98CCCF9D55CC8 /* Core */,
+				92762084565226CDBEE0D372 /* Design */,
+				7D257461C1F4F3173566726D /* Features */,
+				1DA1064832937C544E52D330 /* Persistence */,
+				003F4ED2F85922BAEEAAB4F7 /* Resources */,
+			);
+			path = SwingLab;
+			sourceTree = "<group>";
+		};
+		ACF8580CC76421F66DA5C194 = {
+			isa = PBXGroup;
+			children = (
+				ABA096FB50B5A0B0CF78C5AC /* SwingLab */,
+				94EA8B3078CCBE3C87E377DF /* SwingLabTests */,
+				C8F149D5868BD346A75766D5 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C8F149D5868BD346A75766D5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				38D3DE479FC6D4966EA53269 /* SwingLab.app */,
+				583658F928A2F527598D59F2 /* SwingLabTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E665BE2D8A0B5944F4956FAF /* Media */ = {
+			isa = PBXGroup;
+			children = (
+				3B258AE0A39AE4DFA36F704E /* ImportedVideo.swift */,
+				8D8A4C2B8D5382B574A6FFE5 /* MediaStorage.swift */,
+				921DDC9F77A39AD6F3AC62B3 /* VideoFileTransfer.swift */,
+				2670A02B4745665D76B5277D /* VideoPlayerController.swift */,
+				8C2967975FC16FCDE49599B7 /* VideoPlayerView.swift */,
+				4A31AB1239BC6709C3A03690 /* VideoThumbnailGenerator.swift */,
+			);
+			path = Media;
+			sourceTree = "<group>";
+		};
+		EB63CFAD48D4CDE7E22DED9B /* Analysis */ = {
+			isa = PBXGroup;
+			children = (
+				0712057F329E33F390C8984A /* PoseOverlayView.swift */,
+				E3A3AA865A9B414ACB08614C /* SwingReviewView.swift */,
+				BB50DA50C6FB217DA3BED1BB /* SwingScoreRing.swift */,
+			);
+			path = Analysis;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8065F0C300432653BAEE94FF /* SwingLab */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 79556627CC07F0F3E7845A16 /* Build configuration list for PBXNativeTarget "SwingLab" */;
+			buildPhases = (
+				011DB35E6C51F79EEF31744C /* Sources */,
+				49D1F9E772508FAF88B3857B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SwingLab;
+			packageProductDependencies = (
+			);
+			productName = SwingLab;
+			productReference = 38D3DE479FC6D4966EA53269 /* SwingLab.app */;
+			productType = "com.apple.product-type.application";
+		};
+		BC27AA2C3B18A7CFC3CA3210 /* SwingLabTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EFE8F7233C2996714E627D71 /* Build configuration list for PBXNativeTarget "SwingLabTests" */;
+			buildPhases = (
+				735B326584BAA16BA6036E98 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6326F1CF889707B1870740F9 /* PBXTargetDependency */,
+			);
+			name = SwingLabTests;
+			packageProductDependencies = (
+			);
+			productName = SwingLabTests;
+			productReference = 583658F928A2F527598D59F2 /* SwingLabTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CBF6596A4733A94F0E05C8DF /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					8065F0C300432653BAEE94FF = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 99DFD560E4432019C8ED3DF0 /* Build configuration list for PBXProject "SwingLab" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = ACF8580CC76421F66DA5C194;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C8F149D5868BD346A75766D5 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8065F0C300432653BAEE94FF /* SwingLab */,
+				BC27AA2C3B18A7CFC3CA3210 /* SwingLabTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		49D1F9E772508FAF88B3857B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4DCCD3755EE0725843890318 /* Assets.xcassets in Resources */,
+				37DCB2F3275982ABB6194858 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		011DB35E6C51F79EEF31744C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5CAD46601C6C967F32D06CB1 /* AnalysisFlowModel.swift in Sources */,
+				B8C14299AE8A2104FC896F71 /* AnalysisFlowView.swift in Sources */,
+				EFD706FA076A236B630A8B76 /* ImportTrimView.swift in Sources */,
+				A92D1EC13B62793FB41C0692 /* ImportedVideo.swift in Sources */,
+				D24C705B96741390293BDC36 /* MediaStorage.swift in Sources */,
+				937F470FD6F39B8DE6FA222F /* PoseGeometry.swift in Sources */,
+				810364BA20E9E81F95714760 /* PoseOverlayView.swift in Sources */,
+				2E28364CF13A88CC60DD36DE /* PoseSmoother.swift in Sources */,
+				D61F9D25CCE9D13C045747D9 /* PoseTypes.swift in Sources */,
+				7C3F6FF6B3A3CD66DFF4B515 /* ReferenceSwing.swift in Sources */,
+				9B417E95209CE6499B83B5B2 /* ReviewWithComparisonView.swift in Sources */,
+				E7EAB901562031DA98BF80DA /* RootTabView.swift in Sources */,
+				1A6E3CAFB6165EFEF12BC8CD /* SavedSwingReviewView.swift in Sources */,
+				BE12B007540AB1BEB9777CE4 /* SimulatorPoseFixture.swift in Sources */,
+				DDAAEDCB523800E8D0B8BC6B /* SwingAnalysisPipeline.swift in Sources */,
+				218859C64DE69DE6020BB249 /* SwingAnalysisProgress.swift in Sources */,
+				6EF3C80C0645E085E46F5DFC /* SwingAnalysisTypes.swift in Sources */,
+				78B30031C66AACAE6848147B /* SwingComparisonView.swift in Sources */,
+				4B465E45720EC6B621D00F69 /* SwingComponents.swift in Sources */,
+				C63B9F4E24795D4106772352 /* SwingContextInput.swift in Sources */,
+				5BD08334A3973FE892CD3864 /* SwingEventDetector.swift in Sources */,
+				106C2AC5E126D16D75CE93DF /* SwingFindingEngine.swift in Sources */,
+				2F52FF96695882B0E3204CA6 /* SwingLabApp.swift in Sources */,
+				589A234023E596AF5054B6AD /* SwingMetricsCalculator.swift in Sources */,
+				31F66417FFBDC4DAE0B912C1 /* SwingPersistence.swift in Sources */,
+				0B0210B7CFBA1C1CE7B0FEEC /* SwingReviewView.swift in Sources */,
+				C4F50C7AEBC3B3ABDED49415 /* SwingScoreRing.swift in Sources */,
+				9175E2D31BCCA8AC389DECC6 /* SwingSession.swift in Sources */,
+				D52415E5531E99EE2C5808B9 /* SwingTheme.swift in Sources */,
+				FA9BEFF150499F4FE1C285DB /* TrimSelection.swift in Sources */,
+				CADCE90B2CD47865D40D63C4 /* TrimSwingView.swift in Sources */,
+				4D54373792BDAEDACB78B139 /* TrimTimelineView.swift in Sources */,
+				FBE6DE868D2E22FCBBBFA635 /* VideoFileTransfer.swift in Sources */,
+				CFC037B337C04532AA2FB0BE /* VideoImportModel.swift in Sources */,
+				0979B6F712E849344253C764 /* VideoPlayerController.swift in Sources */,
+				7FE2EFF6A458E83D4583A603 /* VideoPlayerView.swift in Sources */,
+				4AB8120BECB57DE0410FA1C0 /* VideoPoseExtractor.swift in Sources */,
+				072191F9F045FE74943DF2D4 /* VideoThumbnailGenerator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		735B326584BAA16BA6036E98 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1F7017289263D9F14333A924 /* AppAndPersistenceTests.swift in Sources */,
+				D7A4CA00180132BAB23711BE /* GeometryAndAnalysisTests.swift in Sources */,
+				20B2409377ABE7B28498EDBF /* ReferenceMatcherTests.swift in Sources */,
+				B9A3B3CA215FD7AABAB47F38 /* TrimSelectionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		6326F1CF889707B1870740F9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8065F0C300432653BAEE94FF /* SwingLab */;
+			targetProxy = E82155F6983EBB363701E287 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		19CAA254AD5E8B9EEAD5328A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.peterargany.SwingLabTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SwingLab.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SwingLab";
+			};
+			name = Release;
+		};
+		1C88C1A7102FD52E50022488 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		66166AC59D773127640F5D23 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SwingLab;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleLightContent;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.peterargany.SwingLab;
+				PRODUCT_NAME = SwingLab;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		95EE53FF0391399A7E9BF7B4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.peterargany.SwingLabTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SwingLab.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SwingLab";
+			};
+			name = Debug;
+		};
+		BDA1D7F6A71B3F12D6EE44FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SwingLab;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleLightContent;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.peterargany.SwingLab;
+				PRODUCT_NAME = SwingLab;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		E6E66EE99DBC81B0CD677D0A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		79556627CC07F0F3E7845A16 /* Build configuration list for PBXNativeTarget "SwingLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				66166AC59D773127640F5D23 /* Debug */,
+				BDA1D7F6A71B3F12D6EE44FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		99DFD560E4432019C8ED3DF0 /* Build configuration list for PBXProject "SwingLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C88C1A7102FD52E50022488 /* Debug */,
+				E6E66EE99DBC81B0CD677D0A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EFE8F7233C2996714E627D71 /* Build configuration list for PBXNativeTarget "SwingLabTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95EE53FF0391399A7E9BF7B4 /* Debug */,
+				19CAA254AD5E8B9EEAD5328A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CBF6596A4733A94F0E05C8DF /* Project object */;
+}

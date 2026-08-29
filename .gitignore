@@ -11,6 +11,14 @@ build/
 dist/
 *.egg-info/
 
+# Local Swift/Xcode build products and per-user IDE state.
+.build/
+DerivedData/
+*.xcresult
+*.xcarchive
+**/xcuserdata/
+*.xcuserstate
+
 # Local configuration and secrets. A documented example may be committed.
 .env
 .env.*

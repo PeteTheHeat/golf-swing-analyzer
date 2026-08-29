@@ -8,6 +8,41 @@ The first version is deliberately conservative. It measures what a single
 camera can support and labels every angle as a 2D projection. It does not invent
 club or ball data when the video cannot provide it.
 
+## Native iPhone app: SwingLab
+
+The repository now also contains a native SwiftUI app in [`ios/`](ios/). It is
+an original, local-first product for iOS 17 and newer. The current app can:
+
+- choose one video through Apple's limited Photos picker;
+- copy only that video into private app storage;
+- move and trim a frame-snapped swing window;
+- collect camera view, handedness, and club context;
+- extract 2D body pose on-device with Apple Vision;
+- identify address, top, impact, and finish from the selected motion;
+- calculate tempo, posture, joint, head, pelvis, and projected hand-path checks;
+- create a transparent 0–100 score with confidence-gated coaching notes;
+- scrub an annotated review timeline and step frame by frame;
+- preserve completed reviews in a local SwiftData history;
+- delete a saved swing and its uniquely owned local media;
+- phase-match two saved swings in a synchronized Best Swing comparison.
+
+The app has no account, backend, analytics SDK, or CloudKit sync. User video and
+analysis stay on the iPhone. A reference catalog can support licensed coach or
+professional footage later, but no third-party golfer footage ships in this
+repository.
+
+Generate the Xcode project with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
+
+```bash
+xcodegen generate --spec ios/project.yml
+open ios/SwingLab.xcodeproj
+```
+
+Apple's simulator runtime can omit the model weights required by
+`VNDetectHumanBodyPoseRequest`, so final pose validation must run on a physical
+iPhone. The simulator still supports deterministic, explicitly labeled UI QA;
+see [`ios/README.md`](ios/README.md).
+
 ## What it produces
 
 For each detected swing:
@@ -120,10 +155,12 @@ no network calls during analysis.
 
 ## Current roadmap
 
-1. Add a manual phase-correction UI and an annotated slow-motion clip.
-2. Add optional, confidence-gated clubhead point tracking.
-3. Cross-check body pose with RTMPose/RTMW.
-4. Support synchronized face-on and down-the-line videos for calibrated 3D
+1. Validate Vision analysis and performance on a physical iPhone, then ship the
+   first internal TestFlight build.
+2. Add manual phase correction and an exported annotated slow-motion clip.
+3. Add optional, confidence-gated clubhead point tracking.
+4. Add rights-cleared instructor or professional reference footage.
+5. Support synchronized face-on and down-the-line videos for calibrated 3D
    work, rather than fabricating another view from one camera.
 
 ## Development
