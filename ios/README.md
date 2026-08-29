@@ -58,6 +58,11 @@ Video import uses SwiftUI `PhotosPicker`, which gives the app access only to the
 
 ## TestFlight checklist
 
+The current development build installs and launches on the paired iPhone. Its
+on-device Vision run found two swings in each supplied video and completed all
+four analyses. The physical Photos-picker, saved-review, and comparison UI
+journeys still need final manual checks before the beta upload.
+
 1. Choose a distinct shipping name and create its App Store Connect record.
 2. Set the development team and confirm signing in Xcode.
 3. Test Photos import and Vision analysis on a physical iPhone.

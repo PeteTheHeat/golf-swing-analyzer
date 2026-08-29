@@ -16,9 +16,16 @@ struct BodyTrajectorySample: Sendable {
 }
 
 enum BodyTrajectory {
+    private struct WristPairMemory {
+        var offset: SIMD2<Double>
+        var timestamp: Double
+    }
+
     static func samples(
         from frames: [PoseFrame],
-        minimumConfidence: Double
+        minimumConfidence: Double,
+        maximumSampleGapSeconds: Double = 0.5,
+        allowsSingleWristFallback: Bool = false
     ) -> [BodyTrajectorySample] {
         struct RawSample {
             var frameIndex: Int
@@ -33,8 +40,16 @@ enum BodyTrajectory {
         }
 
         var raw: [RawSample] = []
+        var wristPairMemory: WristPairMemory?
         for (index, frame) in frames.enumerated() {
-            guard let hands = frame.midpoint(.leftWrist, .rightWrist, minimumConfidence: minimumConfidence),
+            let hands = handCenter(
+                in: frame,
+                minimumConfidence: minimumConfidence,
+                allowsSingleWristFallback: allowsSingleWristFallback,
+                maximumMemoryAge: maximumSampleGapSeconds * 2,
+                wristPairMemory: &wristPairMemory
+            )
+            guard let hands,
                   let shoulders = frame.midpoint(
                     .leftShoulder,
                     .rightShoulder,
@@ -80,7 +95,10 @@ enum BodyTrajectory {
                 let deltaTime = current.timestamp - previous.timestamp
                 let scaleRatio = max(previous.bodyScale, current.bodyScale) /
                     max(0.000_001, min(previous.bodyScale, current.bodyScale))
-                guard deltaTime > 0, deltaTime < 0.5, scaleRatio < 1.55 else {
+                guard deltaTime > 0,
+                      deltaTime <= maximumSampleGapSeconds,
+                      scaleRatio < 1.55
+                else {
                     break
                 }
                 segmentEnd += 1
@@ -143,6 +161,55 @@ enum BodyTrajectory {
             }
         }
         return result
+    }
+
+    private static func handCenter(
+        in frame: PoseFrame,
+        minimumConfidence: Double,
+        allowsSingleWristFallback: Bool,
+        maximumMemoryAge: Double,
+        wristPairMemory: inout WristPairMemory?
+    ) -> PosePoint? {
+        let left = frame[.leftWrist].flatMap { point in
+            point.confidence >= minimumConfidence ? point : nil
+        }
+        let right = frame[.rightWrist].flatMap { point in
+            point.confidence >= minimumConfidence ? point : nil
+        }
+        if let left, let right {
+            let offset = SIMD2<Double>(right.x - left.x, right.y - left.y)
+            wristPairMemory = WristPairMemory(
+                offset: offset,
+                timestamp: frame.timestampSeconds
+            )
+            return PosePoint(
+                x: (left.x + right.x) / 2,
+                y: (left.y + right.y) / 2,
+                confidence: min(left.confidence, right.confidence)
+            )
+        }
+        guard allowsSingleWristFallback,
+              let memory = wristPairMemory,
+              frame.timestampSeconds >= memory.timestamp,
+              frame.timestampSeconds - memory.timestamp <= maximumMemoryAge
+        else {
+            return nil
+        }
+        if let left {
+            return PosePoint(
+                x: left.x + memory.offset.x / 2,
+                y: left.y + memory.offset.y / 2,
+                confidence: left.confidence
+            )
+        }
+        if let right {
+            return PosePoint(
+                x: right.x - memory.offset.x / 2,
+                y: right.y - memory.offset.y / 2,
+                confidence: right.confidence
+            )
+        }
+        return nil
     }
 }
 
@@ -432,7 +499,9 @@ public enum SwingClipDetector {
         try cancellationCheck()
         let trajectory = BodyTrajectory.samples(
             from: track.frames,
-            minimumConfidence: minimumConfidence
+            minimumConfidence: minimumConfidence,
+            maximumSampleGapSeconds: configuration.maximumSampleGapSeconds,
+            allowsSingleWristFallback: true
         )
         try cancellationCheck()
         var samples: [SwingMotionSample] = []
@@ -532,6 +601,7 @@ public enum SwingClipDetector {
             let smoothed = try smooth(segment, cancellationCheck: cancellationCheck)
             hypotheses.append(contentsOf: try candidates(
                 in: smoothed,
+                rawSamples: segment,
                 configuration: configuration,
                 cancellationCheck: cancellationCheck
             ))
@@ -680,10 +750,12 @@ public enum SwingClipDetector {
 
     private static func candidates(
         in samples: [SwingMotionSample],
+        rawSamples: [SwingMotionSample],
         configuration: SwingClipDetectionConfiguration,
         cancellationCheck: SwingClipCancellationCheck
     ) throws -> [Candidate] {
-        guard samples.count >= 12,
+        guard samples.count == rawSamples.count,
+              samples.count >= 12,
               let segmentStart = samples.first?.timestampSeconds,
               let segmentEnd = samples.last?.timestampSeconds,
               segmentEnd - segmentStart >= 1.8
@@ -695,7 +767,7 @@ public enum SwingClipDetector {
         var nearbyWindow = ForwardTimeWindow()
         var beforeWindow = ForwardTimeWindow()
         var afterWindow = ForwardTimeWindow()
-        for top in samples {
+        for (topIndex, top) in samples.enumerated() {
             try cancellationCheck()
             let nearbyRange = nearbyWindow.range(
                 in: samples,
@@ -743,6 +815,24 @@ public enum SwingClipDetector {
                 continue
             }
 
+            // Use unsmoothed height for the early return cue. Centered
+            // smoothing can hide the downswing when Vision loses the wrists
+            // around impact, while a later club-lowering motion can otherwise
+            // make a finish pose look like a new top.
+            let rawReturnRange = indexedRange(
+                in: rawSamples,
+                from: top.timestampSeconds + 0.12,
+                through: top.timestampSeconds + 0.95
+            )
+            let rawTopHeight = rawSamples[topIndex].handHeight
+            let lowestEarlyHeight = rawReturnRange
+                .map { rawSamples[$0].handHeight }
+                .min() ?? rawTopHeight
+            let minimumEarlyDescent = max(0.04, rise * 0.08)
+            guard rawTopHeight - lowestEarlyHeight >= minimumEarlyDescent else {
+                continue
+            }
+
             var address: SwingMotionSample?
             for index in beforeRange.reversed() {
                 let sample = samples[index]
@@ -753,26 +843,21 @@ public enum SwingClipDetector {
             }
             guard let address else { continue }
 
-            var credibleImpact: SwingMotionSample?
-            var fallbackImpact: SwingMotionSample?
-            for index in afterRange {
-                let sample = samples[index]
-                guard sample.timestampSeconds <= top.timestampSeconds + 1.45 else { break }
-                if credibleImpact == nil,
-                   sample.handHeight <= baseline + 0.14,
-                   sample.handSpeed >= configuration.minimumPostTopSpeed {
-                    credibleImpact = sample
+            let impactRange = indexedRange(
+                in: samples,
+                from: top.timestampSeconds + 0.12,
+                through: top.timestampSeconds + 0.95
+            )
+            let impact = impactRange
+                .map { samples[$0] }
+                .filter { $0.handSpeed >= configuration.minimumPostTopSpeed }
+                .max { first, second in
+                    if first.handSpeed == second.handSpeed {
+                        return first.timestampSeconds > second.timestampSeconds
+                    }
+                    return first.handSpeed < second.handSpeed
                 }
-                if sample.handSpeed >= configuration.minimumPostTopSpeed,
-                   fallbackImpact == nil ||
-                    abs(sample.handHeight - baseline) <
-                    abs(fallbackImpact!.handHeight - baseline) {
-                    fallbackImpact = sample
-                }
-            }
-            guard let impact = credibleImpact ?? fallbackImpact,
-                  abs(impact.handHeight - baseline) <= max(0.22, rise * 0.35)
-            else {
+            guard let impact else {
                 continue
             }
 
@@ -786,7 +871,7 @@ public enum SwingClipDetector {
             for index in finishRange {
                 let sample = samples[index]
                 guard sample.handHeight >= baseline + finishRise,
-                      sample.handSpeed <= 0.65
+                      sample.handSpeed <= 0.90
                 else {
                     continue
                 }
@@ -845,7 +930,7 @@ public enum SwingClipDetector {
                 impactSeconds: impact.timestampSeconds,
                 finishSeconds: finish.timestampSeconds,
                 confidence: confidence,
-                impactBasis: "automatic pose-motion hand-height crossing; confirm the strike frame"
+                impactBasis: "coarse pose-motion speed peak; refined during clip analysis"
             )
             guard containsAllEvents(
                 startSeconds: clipStart,

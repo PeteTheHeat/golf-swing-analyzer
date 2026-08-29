@@ -124,12 +124,19 @@ public struct SwingHandPathMetrics: Codable, Hashable, Sendable {
     public var takeawayInwardMovementShoulders: Double?
     /// Positive means early-downswing hands were farther from the torso center than on the backswing.
     public var transitionOutwardLoopShoulders: Double?
+    /// Exact valid pose sample used for the early-takeaway metric.
+    public var takeawaySampleSeconds: Double? = nil
+    /// Timestamp of the backswing pose matched to early downswing hand height.
+    public var matchedBackswingSeconds: Double? = nil
+    /// Exact valid pose sample used for the early-downswing metric.
+    public var transitionDownswingSeconds: Double? = nil
     public var measurementConfidence: Double
     public var scope: String
 }
 
 public struct SwingMovementMetrics: Codable, Hashable, Sendable {
     public var maximumHeadMovementShoulders: Double?
+    public var maximumHeadMovementTimestampSeconds: Double? = nil
     public var maximumPelvisMovementShoulders: Double?
     public var addressToImpactTorsoChangeDegrees: Double?
     public var handPath: SwingHandPathMetrics
@@ -179,6 +186,88 @@ public struct SwingEvidence: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
+/// Describes the evidence geometry that should be emphasized for one coaching
+/// finding. The numeric screen boundaries are deliberately stored with the
+/// finding so a saved review can explain why the check appeared.
+public struct SwingFindingOverlay: Codable, Hashable, Sendable {
+    public enum Kind: String, Codable, CaseIterable, Sendable {
+        case tempo
+        case headMovement
+        case kneeGeometry
+        case torsoPosture
+        case takeawayHandPath
+        case transitionHandPath
+    }
+
+    public enum Unit: String, Codable, CaseIterable, Sendable {
+        case ratio
+        case degrees
+        case shoulderWidths
+    }
+
+    public var kind: Kind
+    public var baselineEvidenceID: String?
+    public var primaryEvidenceID: String?
+    public var highlightedJoints: [PoseJoint]
+    public var measurementLabel: String
+    public var observedValue: Double?
+    public var warningBelow: Double?
+    public var warningAbove: Double?
+    public var unit: Unit
+
+    public init(
+        kind: Kind,
+        baselineEvidenceID: String? = nil,
+        primaryEvidenceID: String? = nil,
+        highlightedJoints: [PoseJoint],
+        measurementLabel: String,
+        observedValue: Double? = nil,
+        warningBelow: Double? = nil,
+        warningAbove: Double? = nil,
+        unit: Unit
+    ) {
+        self.kind = kind
+        self.baselineEvidenceID = baselineEvidenceID
+        self.primaryEvidenceID = primaryEvidenceID
+        self.highlightedJoints = highlightedJoints
+        self.measurementLabel = measurementLabel
+        self.observedValue = observedValue
+        self.warningBelow = warningBelow
+        self.warningAbove = warningAbove
+        self.unit = unit
+    }
+
+    var measurementSummary: String? {
+        guard let observedValue, observedValue.isFinite else { return nil }
+        let observed = formatted(observedValue)
+        let screen: String?
+        if let warningBelow, warningBelow.isFinite,
+           let warningAbove, warningAbove.isFinite {
+            screen = "screen band \(formatted(warningBelow))–\(formatted(warningAbove))"
+        } else if let warningAbove, warningAbove.isFinite {
+            screen = "screen flag ≥ \(formatted(warningAbove))"
+        } else if let warningBelow, warningBelow.isFinite {
+            screen = "screen flag ≤ \(formatted(warningBelow))"
+        } else {
+            screen = nil
+        }
+        return ["\(measurementLabel) \(observed)", screen]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+
+    private func formatted(_ value: Double) -> String {
+        switch unit {
+        case .ratio:
+            String(format: "%.2f:1", value)
+        case .degrees:
+            String(format: "%.0f°", value)
+        case .shoulderWidths:
+            String(format: "%.2f shoulder widths", value)
+        }
+    }
+}
+
 public struct SwingFinding: Codable, Hashable, Sendable, Identifiable {
     public var id: String
     public var title: String
@@ -190,6 +279,7 @@ public struct SwingFinding: Codable, Hashable, Sendable, Identifiable {
     public var confidence: Double
     public var evidenceIDs: [String]
     public var caveat: String?
+    public var overlay: SwingFindingOverlay?
 
     public init(
         id: String,
@@ -200,7 +290,8 @@ public struct SwingFinding: Codable, Hashable, Sendable, Identifiable {
         severity: SwingFindingSeverity,
         confidence: Double,
         evidenceIDs: [String],
-        caveat: String? = nil
+        caveat: String? = nil,
+        overlay: SwingFindingOverlay? = nil
     ) {
         self.id = id
         self.title = title
@@ -211,6 +302,88 @@ public struct SwingFinding: Codable, Hashable, Sendable, Identifiable {
         self.confidence = max(0, min(confidence, 1))
         self.evidenceIDs = evidenceIDs
         self.caveat = caveat
+        self.overlay = overlay
+    }
+}
+
+extension SwingFinding {
+    /// Keeps older saved analyses visually useful after overlay metadata was
+    /// introduced. New analyses persist their measured values and boundaries.
+    var resolvedOverlay: SwingFindingOverlay? {
+        overlay ?? Self.legacyOverlay(for: id)
+    }
+
+    private static func legacyOverlay(for id: String) -> SwingFindingOverlay? {
+        switch id {
+        case "tempo":
+            SwingFindingOverlay(
+                kind: .tempo,
+                baselineEvidenceID: "event-address",
+                primaryEvidenceID: "event-top",
+                highlightedJoints: [.leftShoulder, .rightShoulder, .leftWrist, .rightWrist],
+                measurementLabel: "Tempo ratio",
+                unit: .ratio
+            )
+        case "head-movement", "head-contained":
+            SwingFindingOverlay(
+                kind: .headMovement,
+                baselineEvidenceID: "event-address",
+                primaryEvidenceID: "head-peak",
+                highlightedJoints: [
+                    .nose, .leftEye, .rightEye, .leftEar, .rightEar,
+                    .leftShoulder, .rightShoulder,
+                ],
+                measurementLabel: "Head travel",
+                unit: .shoulderWidths
+            )
+        case "setup-knees":
+            SwingFindingOverlay(
+                kind: .kneeGeometry,
+                primaryEvidenceID: "event-address",
+                highlightedJoints: [
+                    .leftHip, .rightHip, .leftKnee, .rightKnee, .leftAnkle, .rightAnkle,
+                ],
+                measurementLabel: "Knee-angle difference",
+                unit: .degrees
+            )
+        case "posture-loss-hypothesis":
+            SwingFindingOverlay(
+                kind: .torsoPosture,
+                baselineEvidenceID: "event-address",
+                primaryEvidenceID: "event-impact",
+                highlightedJoints: [
+                    .nose, .neck, .leftShoulder, .rightShoulder, .leftHip, .rightHip,
+                ],
+                measurementLabel: "Torso change",
+                unit: .degrees
+            )
+        case "hands-inside-pattern":
+            SwingFindingOverlay(
+                kind: .takeawayHandPath,
+                baselineEvidenceID: "event-address",
+                primaryEvidenceID: "hand-takeaway",
+                highlightedJoints: [
+                    .leftShoulder, .rightShoulder, .leftElbow, .rightElbow,
+                    .leftWrist, .rightWrist, .leftHip, .rightHip,
+                ],
+                measurementLabel: "Inward hand travel",
+                unit: .shoulderWidths
+            )
+        case "projected-transition-loop":
+            SwingFindingOverlay(
+                kind: .transitionHandPath,
+                baselineEvidenceID: "hand-transition-backswing",
+                primaryEvidenceID: "hand-transition",
+                highlightedJoints: [
+                    .leftShoulder, .rightShoulder, .leftElbow, .rightElbow,
+                    .leftWrist, .rightWrist, .leftHip, .rightHip,
+                ],
+                measurementLabel: "Outward hand loop",
+                unit: .shoulderWidths
+            )
+        default:
+            nil
+        }
     }
 }
 
@@ -293,6 +466,47 @@ extension SwingAnalysisResult {
             evidence.first { $0.id == evidenceID }
         }
         return linkedEvidence.last { $0.phase == finding.phase } ?? linkedEvidence.last
+    }
+
+    /// Resolves a visualization against this result's own measurements. This
+    /// matters in comparison: the reference pane must never display the user's
+    /// metric merely because the user finding selected the overlay kind.
+    func resolvedOverlay(for finding: SwingFinding) -> SwingFindingOverlay? {
+        guard var overlay = finding.resolvedOverlay else { return nil }
+        guard supportsOverlay(overlay.kind) else { return nil }
+        overlay.observedValue = measurementValue(for: overlay.kind)
+        return overlay
+    }
+
+    func supportsOverlay(_ kind: SwingFindingOverlay.Kind) -> Bool {
+        switch kind {
+        case .torsoPosture, .takeawayHandPath, .transitionHandPath:
+            context.cameraView == .downTheLine
+        case .tempo, .headMovement, .kneeGeometry:
+            true
+        }
+    }
+
+    private func measurementValue(for kind: SwingFindingOverlay.Kind) -> Double? {
+        switch kind {
+        case .tempo:
+            metrics.timing.tempoRatio
+        case .headMovement:
+            metrics.movement.maximumHeadMovementShoulders
+        case .kneeGeometry:
+            if let left = metrics.address.leftKneeDegrees,
+               let right = metrics.address.rightKneeDegrees {
+                abs(left - right)
+            } else {
+                nil
+            }
+        case .torsoPosture:
+            metrics.movement.addressToImpactTorsoChangeDegrees
+        case .takeawayHandPath:
+            metrics.movement.handPath.takeawayInwardMovementShoulders
+        case .transitionHandPath:
+            metrics.movement.handPath.transitionOutwardLoopShoulders
+        }
     }
 }
 

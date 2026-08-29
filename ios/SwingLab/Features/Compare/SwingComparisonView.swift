@@ -12,6 +12,7 @@ struct SwingComparisonView: View {
     @StateObject private var referencePlayer: VideoPlayerController
     @State private var findingIndex: Int
     @State private var showsOverlays = true
+    @State private var showsReferenceRights = false
 
     init(
         userVideo: ImportedVideo,
@@ -55,6 +56,7 @@ struct SwingComparisonView: View {
                     subtitle: finding?.title,
                     player: userPlayer,
                     pose: userPose,
+                    analysis: userAnalysis,
                     aspectRatio: userVideo.aspectRatio,
                     highlight: SwingTheme.coral
                 )
@@ -68,6 +70,7 @@ struct SwingComparisonView: View {
                     subtitle: reference.descriptor.displayLabel,
                     player: referencePlayer,
                     pose: referencePose,
+                    analysis: reference.analysis,
                     aspectRatio: reference.video.aspectRatio,
                     highlight: SwingTheme.success
                 )
@@ -86,6 +89,11 @@ struct SwingComparisonView: View {
             seekToFinding()
         }
         .onChange(of: findingIndex) { _, _ in seekToFinding() }
+        .sheet(isPresented: $showsReferenceRights) {
+            referenceRightsSheet
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private var comparisonHeader: some View {
@@ -112,6 +120,17 @@ struct SwingComparisonView: View {
 
             Spacer()
 
+            if reference.descriptor.isDistributionReady {
+                Button {
+                    showsReferenceRights = true
+                } label: {
+                    Image(systemName: "checkmark.seal")
+                        .frame(width: 42, height: 42)
+                        .background(SwingTheme.elevated, in: Circle())
+                }
+                .accessibilityLabel("Reference rights and attribution")
+            }
+
             Button {
                 showsOverlays.toggle()
             } label: {
@@ -132,16 +151,31 @@ struct SwingComparisonView: View {
         subtitle: String?,
         player: VideoPlayerController,
         pose: PoseFrame?,
+        analysis: SwingAnalysisResult,
         aspectRatio: CGFloat,
         highlight: Color
     ) -> some View {
-        ZStack(alignment: .topLeading) {
+        let requestedOverlay = finding?.resolvedOverlay
+        let overlay = resolvedOverlay(for: analysis)
+        let overlayNote = overlayNote(
+            requested: requestedOverlay,
+            resolved: overlay,
+            in: analysis
+        )
+        return ZStack(alignment: .topLeading) {
             VideoPlayerView(player: player.player, gravity: .fit)
             if showsOverlays {
                 PoseOverlayView(
                     pose: pose,
                     videoAspectRatio: aspectRatio,
-                    highlightedJoints: [.leftWrist, .rightWrist, .leftShoulder, .rightShoulder],
+                    highlightedJoints: Set(overlay?.highlightedJoints ?? []),
+                    findingOverlay: overlay,
+                    baselinePose: baselinePose(for: overlay, in: analysis),
+                    guidePose: guidePose(
+                        for: overlay,
+                        in: analysis
+                    ),
+                    handTrail: handTrail(for: overlay, in: analysis),
                     highlightColor: highlight
                 )
             }
@@ -155,6 +189,18 @@ struct SwingComparisonView: View {
                         .font(SwingTheme.Typography.headline)
                         .foregroundStyle(.white)
                         .lineLimit(2)
+                }
+                if let summary = overlay?.measurementSummary {
+                    Text(summary)
+                        .font(SwingTheme.Typography.caption.monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.76))
+                        .lineLimit(2)
+                }
+                if let overlayNote {
+                    Text(overlayNote)
+                        .font(SwingTheme.Typography.caption)
+                        .foregroundStyle(.white.opacity(0.76))
+                        .lineLimit(3)
                 }
             }
             .padding(SwingTheme.Spacing.medium)
@@ -203,6 +249,42 @@ struct SwingComparisonView: View {
         .background(SwingTheme.deepCanvas)
     }
 
+    private var referenceRightsSheet: some View {
+        NavigationStack {
+            List {
+                Section("Reference") {
+                    LabeledContent("Name", value: reference.descriptor.displayLabel)
+                    if let golfer = reference.descriptor.golferLabel {
+                        LabeledContent("Golfer", value: golfer)
+                    }
+                }
+
+                Section("Rights") {
+                    if let attribution = reference.descriptor.attribution {
+                        LabeledContent("Attribution", value: attribution)
+                    }
+                    if let licenseName = reference.descriptor.licenseName {
+                        LabeledContent("License", value: licenseName)
+                    }
+                    if let sourceURL = reference.descriptor.sourceURL {
+                        Link("Open source page", destination: sourceURL)
+                    }
+                    if let licenseURL = reference.descriptor.licenseURL {
+                        Link("Open license", destination: licenseURL)
+                    }
+                }
+            }
+            .navigationTitle("Reference details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showsReferenceRights = false }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
     private var referencePaneTitle: String {
         switch reference.descriptor.sourceKind {
         case .bestSelf:
@@ -241,6 +323,120 @@ struct SwingComparisonView: View {
         track.frames.min {
             abs($0.timestampSeconds - time) < abs($1.timestampSeconds - time)
         }
+    }
+
+    private func resolvedOverlay(
+        for analysis: SwingAnalysisResult
+    ) -> SwingFindingOverlay? {
+        finding.flatMap { analysis.resolvedOverlay(for: $0) }
+    }
+
+    private func baselinePose(
+        for overlay: SwingFindingOverlay?,
+        in analysis: SwingAnalysisResult
+    ) -> PoseFrame? {
+        guard let overlay else { return nil }
+        if let exact = pose(forEvidenceID: overlay.baselineEvidenceID, in: analysis) {
+            return exact
+        }
+        let fallbackID: String?
+        switch overlay.kind {
+        case .headMovement, .torsoPosture, .takeawayHandPath:
+            fallbackID = "event-address"
+        case .tempo:
+            fallbackID = "event-top"
+        case .kneeGeometry, .transitionHandPath:
+            fallbackID = nil
+        }
+        return pose(forEvidenceID: fallbackID, in: analysis)
+    }
+
+    private func guidePose(
+        for overlay: SwingFindingOverlay?,
+        in analysis: SwingAnalysisResult
+    ) -> PoseFrame? {
+        guard overlay?.kind == .headMovement else { return nil }
+        return pose(forEvidenceID: overlay?.primaryEvidenceID, in: analysis)
+    }
+
+    private func handTrail(
+        for overlay: SwingFindingOverlay?,
+        in analysis: SwingAnalysisResult
+    ) -> [PoseFrame] {
+        guard let overlay,
+              overlay.kind == .takeawayHandPath || overlay.kind == .transitionHandPath else {
+            return []
+        }
+        let start: Double?
+        let end: Double?
+        if overlay.kind == .transitionHandPath {
+            start = evidence(
+                withID: overlay.baselineEvidenceID,
+                in: analysis
+            )?.timestampSeconds
+            end = evidence(
+                withID: overlay.primaryEvidenceID,
+                in: analysis
+            )?.timestampSeconds
+        } else {
+            start = evidence(
+                withID: overlay.baselineEvidenceID,
+                in: analysis
+            )?.timestampSeconds ?? evidence(
+                withID: "event-address",
+                in: analysis
+            )?.timestampSeconds
+            end = evidence(
+                withID: overlay.primaryEvidenceID,
+                in: analysis
+            )?.timestampSeconds ?? evidence(
+                withID: "hand-takeaway",
+                in: analysis
+            )?.timestampSeconds
+        }
+        guard let start, let end else { return [] }
+        let lower = min(start, end)
+        let upper = max(start, end)
+        return analysis.poseTrack.frames.filter {
+            $0.timestampSeconds >= lower && $0.timestampSeconds <= upper
+        }
+    }
+
+    private func pose(
+        forEvidenceID id: String?,
+        in analysis: SwingAnalysisResult
+    ) -> PoseFrame? {
+        guard let timestamp = evidence(withID: id, in: analysis)?.timestampSeconds else {
+            return nil
+        }
+        return nearestPose(in: analysis.poseTrack, at: timestamp)
+    }
+
+    private func evidence(
+        withID id: String?,
+        in analysis: SwingAnalysisResult
+    ) -> SwingEvidence? {
+        guard let id else { return nil }
+        return analysis.evidence.first { $0.id == id }
+    }
+
+    private func overlayNote(
+        requested: SwingFindingOverlay?,
+        resolved: SwingFindingOverlay?,
+        in analysis: SwingAnalysisResult
+    ) -> String? {
+        if let requested, !analysis.supportsOverlay(requested.kind) {
+            return "Not comparable from \(analysis.context.cameraView.displayName.lowercased()) footage. Choose a down-the-line reference for this check."
+        }
+        if resolved?.kind == .transitionHandPath,
+           baselinePose(for: resolved, in: analysis) == nil {
+            return "Matched-height baseline is unavailable in this older saved analysis."
+        }
+        if resolved?.kind == .headMovement,
+           guidePose(for: resolved, in: analysis) == nil {
+            return "Peak head-movement frame is unavailable in this older saved analysis."
+        }
+        return nil
     }
 
     private func playbackSelection(

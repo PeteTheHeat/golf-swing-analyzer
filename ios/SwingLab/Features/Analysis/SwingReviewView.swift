@@ -40,13 +40,57 @@ struct SwingReviewView: View {
         }
     }
 
-    private var selectedEvidence: SwingEvidence? {
-        guard let selectedFinding else { return nil }
-        return analysis.primaryEvidence(for: selectedFinding)
+    private var selectedOverlay: SwingFindingOverlay? {
+        selectedFinding.flatMap { analysis.resolvedOverlay(for: $0) }
     }
 
     private var highlightedJoints: Set<PoseJoint> {
-        Set(selectedEvidence?.joints.keys ?? Dictionary<PoseJoint, PosePoint>().keys)
+        Set(selectedOverlay?.highlightedJoints ?? [])
+    }
+
+    private var selectedBaselinePose: PoseFrame? {
+        guard let selectedFinding, let selectedOverlay else { return nil }
+        let evidenceID = selectedOverlay.baselineEvidenceID
+            ?? selectedFinding.evidenceIDs.first
+        return pose(forEvidenceID: evidenceID)
+    }
+
+    private var selectedHandTrail: [PoseFrame] {
+        guard let selectedFinding,
+              let selectedOverlay,
+              selectedOverlay.kind == .takeawayHandPath
+                || selectedOverlay.kind == .transitionHandPath else {
+            return []
+        }
+        let baselineID = selectedOverlay.baselineEvidenceID
+            ?? selectedFinding.evidenceIDs.first
+        let primaryID = selectedOverlay.primaryEvidenceID
+            ?? selectedFinding.evidenceIDs.last
+        guard let start = evidence(withID: baselineID)?.timestampSeconds,
+              let end = evidence(withID: primaryID)?.timestampSeconds else {
+            return []
+        }
+        let lower = min(start, end)
+        let upper = max(start, end)
+        return analysis.poseTrack.frames.filter {
+            $0.timestampSeconds >= lower && $0.timestampSeconds <= upper
+        }
+    }
+
+    private var selectedGuidePose: PoseFrame? {
+        guard selectedOverlay?.kind == .headMovement else { return nil }
+        return pose(forEvidenceID: selectedOverlay?.primaryEvidenceID)
+    }
+
+    private var selectedGuideNote: String? {
+        switch selectedOverlay?.kind {
+        case .headMovement where selectedGuidePose == nil:
+            return "Peak head-movement frame is unavailable in this older saved analysis."
+        case .transitionHandPath where selectedBaselinePose == nil:
+            return "Matched-height baseline is unavailable in this older saved analysis."
+        default:
+            return nil
+        }
     }
 
     var body: some View {
@@ -87,7 +131,11 @@ struct SwingReviewView: View {
                 PoseOverlayView(
                     pose: currentPose,
                     videoAspectRatio: video.aspectRatio,
-                    highlightedJoints: highlightedJoints
+                    highlightedJoints: highlightedJoints,
+                    findingOverlay: selectedOverlay,
+                    baselinePose: selectedBaselinePose,
+                    guidePose: selectedGuidePose,
+                    handTrail: selectedHandTrail
                 )
                 .aspectRatio(video.aspectRatio, contentMode: .fit)
 
@@ -130,8 +178,20 @@ struct SwingReviewView: View {
     }
 
     private func findingBubble(_ finding: SwingFinding) -> some View {
-        Text(finding.title)
-            .font(SwingTheme.Typography.headline)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(finding.title)
+                .font(SwingTheme.Typography.headline)
+            if let summary = analysis.resolvedOverlay(for: finding)?.measurementSummary {
+                Text(summary)
+                    .font(SwingTheme.Typography.caption.monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.78))
+            }
+            if let selectedGuideNote {
+                Text(selectedGuideNote)
+                    .font(SwingTheme.Typography.caption)
+                    .foregroundStyle(.white.opacity(0.78))
+            }
+        }
             .foregroundStyle(.white)
             .padding(.horizontal, SwingTheme.Spacing.medium)
             .padding(.vertical, 12)
@@ -323,6 +383,18 @@ struct SwingReviewView: View {
     private func evidenceTime(for finding: SwingFinding) -> Double {
         analysis.primaryEvidence(for: finding)?.timestampSeconds
             ?? analysis.events[finding.phase]
+    }
+
+    private func evidence(withID id: String?) -> SwingEvidence? {
+        guard let id else { return nil }
+        return analysis.evidence.first { $0.id == id }
+    }
+
+    private func pose(forEvidenceID id: String?) -> PoseFrame? {
+        guard let timestamp = evidence(withID: id)?.timestampSeconds else { return nil }
+        return analysis.poseTrack.frames.min {
+            abs($0.timestampSeconds - timestamp) < abs($1.timestampSeconds - timestamp)
+        }
     }
 
     private var manualSelectionTolerance: Double {

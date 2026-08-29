@@ -13,6 +13,9 @@ struct ReviewWithComparisonView: View {
     @State private var reference: ReferenceSwing?
     @State private var failure: ComparisonLoadFailure?
     @State private var comparisonFindingID: String?
+    @State private var bundledReferences: [BundledReferenceManifestEntry] = []
+    @State private var catalogFailureMessage: String?
+    @State private var didLoadCatalog = false
 
     private var privateReferenceCandidates: [ComparisonCandidate] {
         sortedCandidates(
@@ -24,6 +27,25 @@ struct ReviewWithComparisonView: View {
         sortedCandidates(
             sessions.filter { $0.isPersonalSwing }
         )
+    }
+
+    private var verifiedSessionCandidates: [ComparisonCandidate] {
+        sortedCandidates(
+            sessions.filter {
+                $0.sessionOrigin == .reference && !$0.isPrivateReference
+            }
+        )
+        .filter(\.descriptor.isDistributionReady)
+    }
+
+    private var bundledReferenceCandidates: [BundledReferenceManifestEntry] {
+        bundledReferences.sorted { first, second in
+            let firstScore = compatibilityScore(for: first.descriptor)
+            let secondScore = compatibilityScore(for: second.descriptor)
+            return firstScore == secondScore
+                ? first.displayName < second.displayName
+                : firstScore > secondScore
+        }
     }
 
     var body: some View {
@@ -78,12 +100,19 @@ struct ReviewWithComparisonView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .task {
+            loadBundledCatalogIfNeeded()
+        }
     }
 
     private var referencePicker: some View {
         NavigationStack {
             Group {
-                if privateReferenceCandidates.isEmpty && bestSwingCandidates.isEmpty {
+                if bundledReferenceCandidates.isEmpty
+                    && verifiedSessionCandidates.isEmpty
+                    && privateReferenceCandidates.isEmpty
+                    && bestSwingCandidates.isEmpty
+                    && catalogFailureMessage == nil {
                     ContentUnavailableView {
                         Label("Analyze one more swing", systemImage: "rectangle.split.2x1")
                     } description: {
@@ -91,10 +120,36 @@ struct ReviewWithComparisonView: View {
                     }
                 } else {
                     List {
+                        if !bundledReferenceCandidates.isEmpty {
+                            Section {
+                                ForEach(bundledReferenceCandidates) { entry in
+                                    bundledCandidateRow(entry)
+                                }
+                            } header: {
+                                Text("Licensed references")
+                            } footer: {
+                                Text("Catalog entries appear after distribution rights and source metadata validate. The video and analysis are checked before comparison opens.")
+                            }
+                        }
+
+                        if !verifiedSessionCandidates.isEmpty {
+                            Section("Verified references") {
+                                ForEach(verifiedSessionCandidates) { candidate in
+                                    candidateRow(
+                                        candidate,
+                                        sourceLabel: "Verified license"
+                                    )
+                                }
+                            }
+                        }
+
                         if !privateReferenceCandidates.isEmpty {
                             Section {
                                 ForEach(privateReferenceCandidates) { candidate in
-                                    candidateRow(candidate, isPrivateReference: true)
+                                    candidateRow(
+                                        candidate,
+                                        sourceLabel: "Private · unverified"
+                                    )
                                 }
                             } header: {
                                 Text("Private references")
@@ -106,8 +161,19 @@ struct ReviewWithComparisonView: View {
                         if !bestSwingCandidates.isEmpty {
                             Section("Your saved swings") {
                                 ForEach(bestSwingCandidates) { candidate in
-                                    candidateRow(candidate, isPrivateReference: false)
+                                    candidateRow(
+                                        candidate,
+                                        sourceLabel: "Your saved swing"
+                                    )
                                 }
+                            }
+                        }
+
+                        if let catalogFailureMessage {
+                            Section("Reference catalog unavailable") {
+                                Label(catalogFailureMessage, systemImage: "exclamationmark.triangle")
+                                    .font(.caption)
+                                    .foregroundStyle(SwingTheme.mutedText)
                             }
                         }
                     }
@@ -128,7 +194,7 @@ struct ReviewWithComparisonView: View {
 
     private func candidateRow(
         _ candidate: ComparisonCandidate,
-        isPrivateReference: Bool
+        sourceLabel: String
     ) -> some View {
         Button {
             loadReference(candidate)
@@ -141,10 +207,40 @@ struct ReviewWithComparisonView: View {
                         .foregroundStyle(SwingTheme.cream)
                     Text(referenceDetail(
                         for: candidate.session,
-                        isPrivateReference: isPrivateReference
+                        sourceLabel: sourceLabel
                     ))
                     .font(.caption)
                     .foregroundStyle(SwingTheme.mutedText)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(SwingTheme.subtleText)
+            }
+            .padding(.vertical, 6)
+        }
+        .listRowBackground(SwingTheme.surface)
+    }
+
+    private func bundledCandidateRow(
+        _ entry: BundledReferenceManifestEntry
+    ) -> some View {
+        Button {
+            loadBundledReference(entry)
+        } label: {
+            HStack(spacing: SwingTheme.Spacing.medium) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.title2)
+                    .foregroundStyle(SwingTheme.success)
+                    .frame(width: 44, height: 44)
+                    .background(SwingTheme.elevated, in: Circle())
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.descriptor.displayLabel)
+                        .font(.headline)
+                        .foregroundStyle(SwingTheme.cream)
+                    Text(bundledReferenceDetail(entry))
+                        .font(.caption)
+                        .foregroundStyle(SwingTheme.mutedText)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
@@ -172,6 +268,31 @@ struct ReviewWithComparisonView: View {
             } catch {
                 failure = ComparisonLoadFailure(message: error.localizedDescription)
             }
+        }
+    }
+
+    private func loadBundledReference(_ entry: BundledReferenceManifestEntry) {
+        isShowingReferencePicker = false
+        isLoadingReference = true
+
+        Task { @MainActor in
+            defer { isLoadingReference = false }
+            do {
+                reference = try await BundledReferenceCatalog.load(entry)
+            } catch {
+                failure = ComparisonLoadFailure(message: error.localizedDescription)
+            }
+        }
+    }
+
+    private func loadBundledCatalogIfNeeded() {
+        guard !didLoadCatalog else { return }
+        didLoadCatalog = true
+        do {
+            bundledReferences = try BundledReferenceCatalog.entries()
+        } catch {
+            bundledReferences = []
+            catalogFailureMessage = error.localizedDescription
         }
     }
 
@@ -207,13 +328,22 @@ struct ReviewWithComparisonView: View {
 
     private func referenceDetail(
         for session: SwingSession,
-        isPrivateReference: Bool
+        sourceLabel: String
     ) -> String {
-        let source = isPrivateReference ? "Private · unverified" : "Your saved swing"
         let viewMatch = session.cameraView == payload.analysis.context.cameraView
             ? "same view"
             : "different view"
-        return "\(source) · \(session.cameraView.displayName) · \(session.selectedClub.displayName) · \(viewMatch)"
+        return "\(sourceLabel) · \(session.cameraView.displayName) · \(session.selectedClub.displayName) · \(viewMatch)"
+    }
+
+    private func bundledReferenceDetail(
+        _ entry: BundledReferenceManifestEntry
+    ) -> String {
+        let golfer = entry.descriptor.golferLabel ?? "Reference golfer"
+        let viewMatch = entry.cameraView == payload.analysis.context.cameraView
+            ? "same view"
+            : "different view"
+        return "\(golfer) · \(entry.cameraView.displayName) · \(entry.club.displayName) · \(viewMatch)"
     }
 }
 

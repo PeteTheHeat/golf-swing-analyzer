@@ -92,6 +92,7 @@ final class GeometryAndAnalysisTests: XCTestCase {
 
         XCTAssertTrue(result.evidence.contains { $0.id == "event-impact" && !$0.joints.isEmpty })
         XCTAssertTrue(result.evidence.contains { $0.id == "hand-takeaway" })
+        XCTAssertTrue(result.evidence.contains { $0.id == "head-peak" })
         XCTAssertTrue(result.evidence.contains { $0.id == "hand-transition" })
         XCTAssertTrue(result.findings.contains { $0.id == "hands-inside-pattern" })
         XCTAssertTrue(result.findings.contains { $0.id == "projected-transition-loop" })
@@ -219,6 +220,219 @@ final class GeometryAndAnalysisTests: XCTestCase {
         XCTAssertEqual(result.primaryEvidence(for: transition)?.id, "hand-transition")
     }
 
+    func testDirectionalFindingsPersistSpecificVisualEvidenceAndThresholds() throws {
+        let result = try SwingAnalysisEngine.analyze(
+            poseTrack: syntheticSwingTrack(),
+            context: SwingAnalysisContext(cameraView: .downTheLine, handedness: .right)
+        )
+        let takeaway = try XCTUnwrap(
+            result.findings.first { $0.id == "hands-inside-pattern" }
+        )
+        let posture = try XCTUnwrap(
+            result.findings.first { $0.id == "posture-loss-hypothesis" }
+        )
+        let transition = try XCTUnwrap(
+            result.findings.first { $0.id == "projected-transition-loop" }
+        )
+
+        XCTAssertEqual(takeaway.overlay?.kind, .takeawayHandPath)
+        XCTAssertEqual(takeaway.overlay?.baselineEvidenceID, "event-address")
+        XCTAssertEqual(takeaway.overlay?.primaryEvidenceID, "hand-takeaway")
+        XCTAssertEqual(takeaway.overlay?.warningAbove, 0.28)
+        XCTAssertEqual(
+            Set(takeaway.overlay?.highlightedJoints ?? []),
+            Set([
+                .leftShoulder, .rightShoulder, .leftElbow, .rightElbow,
+                .leftWrist, .rightWrist, .leftHip, .rightHip,
+            ])
+        )
+
+        XCTAssertEqual(posture.overlay?.kind, .torsoPosture)
+        XCTAssertEqual(posture.overlay?.baselineEvidenceID, "event-address")
+        XCTAssertEqual(posture.overlay?.primaryEvidenceID, "event-impact")
+        XCTAssertEqual(posture.overlay?.warningAbove, 10)
+
+        XCTAssertEqual(transition.overlay?.kind, .transitionHandPath)
+        XCTAssertEqual(
+            transition.overlay?.baselineEvidenceID,
+            "hand-transition-backswing"
+        )
+        XCTAssertEqual(transition.overlay?.primaryEvidenceID, "hand-transition")
+        XCTAssertEqual(transition.overlay?.warningAbove, 0.22)
+        XCTAssertNotNil(result.metrics.movement.handPath.matchedBackswingSeconds)
+        XCTAssertTrue(result.evidence.contains { $0.id == "hand-transition-backswing" })
+
+        let head = try XCTUnwrap(
+            result.findings.first { $0.id == "head-movement" || $0.id == "head-contained" }
+        )
+        XCTAssertEqual(head.overlay?.primaryEvidenceID, "head-peak")
+        XCTAssertEqual(
+            result.evidence.first { $0.id == "head-peak" }?.timestampSeconds,
+            result.metrics.movement.maximumHeadMovementTimestampSeconds
+        )
+    }
+
+    func testLegacyFindingWithoutOverlayDecodesAndGetsSafeVisualFallback() throws {
+        let finding = SwingFinding(
+            id: "posture-loss-hypothesis",
+            title: "Legacy posture check",
+            observation: "Legacy observation",
+            coachingTip: "Legacy tip",
+            phase: .impact,
+            severity: .watch,
+            confidence: 0.8,
+            evidenceIDs: ["event-address", "event-impact"]
+        )
+        let encoded = try JSONEncoder().encode(finding)
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        object.removeValue(forKey: "overlay")
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+
+        let decoded = try JSONDecoder().decode(SwingFinding.self, from: legacyData)
+        XCTAssertNil(decoded.overlay)
+        XCTAssertEqual(decoded.resolvedOverlay?.kind, .torsoPosture)
+        XCTAssertEqual(
+            Set(decoded.resolvedOverlay?.highlightedJoints ?? []),
+            Set([.nose, .neck, .leftShoulder, .rightShoulder, .leftHip, .rightHip])
+        )
+    }
+
+    func testLegacyAnalysisWithoutNewVisualizationFieldsStillDecodes() throws {
+        let result = try SwingAnalysisEngine.analyze(
+            poseTrack: syntheticSwingTrack(),
+            context: SwingAnalysisContext(cameraView: .downTheLine, handedness: .right)
+        )
+        let encoded = try JSONEncoder().encode(result)
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+
+        var metrics = try XCTUnwrap(object["metrics"] as? [String: Any])
+        var movement = try XCTUnwrap(metrics["movement"] as? [String: Any])
+        var handPath = try XCTUnwrap(movement["handPath"] as? [String: Any])
+        handPath.removeValue(forKey: "matchedBackswingSeconds")
+        handPath.removeValue(forKey: "takeawaySampleSeconds")
+        handPath.removeValue(forKey: "transitionDownswingSeconds")
+        movement["handPath"] = handPath
+        movement.removeValue(forKey: "maximumHeadMovementTimestampSeconds")
+        metrics["movement"] = movement
+        object["metrics"] = metrics
+
+        var findings = try XCTUnwrap(object["findings"] as? [[String: Any]])
+        for index in findings.indices {
+            findings[index].removeValue(forKey: "overlay")
+            if findings[index]["id"] as? String == "projected-transition-loop" {
+                findings[index]["evidenceIDs"] = ["event-top", "hand-transition"]
+            }
+        }
+        object["findings"] = findings
+        var evidence = try XCTUnwrap(object["evidence"] as? [[String: Any]])
+        evidence.removeAll {
+            ($0["id"] as? String) == "hand-transition-backswing"
+        }
+        object["evidence"] = evidence
+
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(SwingAnalysisResult.self, from: legacyData)
+        XCTAssertNil(decoded.metrics.movement.handPath.matchedBackswingSeconds)
+        XCTAssertNil(decoded.metrics.movement.handPath.takeawaySampleSeconds)
+        XCTAssertNil(decoded.metrics.movement.handPath.transitionDownswingSeconds)
+        XCTAssertNil(decoded.metrics.movement.maximumHeadMovementTimestampSeconds)
+        XCTAssertTrue(decoded.findings.allSatisfy { $0.overlay == nil })
+        let posture = try XCTUnwrap(
+            decoded.findings.first { $0.id == "posture-loss-hypothesis" }
+        )
+        XCTAssertEqual(decoded.resolvedOverlay(for: posture)?.kind, .torsoPosture)
+        let transition = try XCTUnwrap(
+            decoded.findings.first { $0.id == "projected-transition-loop" }
+        )
+        XCTAssertEqual(
+            transition.resolvedOverlay?.baselineEvidenceID,
+            "hand-transition-backswing"
+        )
+        XCTAssertFalse(
+            decoded.evidence.contains { $0.id == "hand-transition-backswing" }
+        )
+    }
+
+    func testComparisonOverlayUsesEachAnalysisOwnMeasurement() throws {
+        let user = try SwingAnalysisEngine.analyze(
+            poseTrack: syntheticSwingTrack(),
+            context: SwingAnalysisContext(cameraView: .downTheLine, handedness: .right)
+        )
+        let finding = try XCTUnwrap(
+            user.findings.first { $0.id == "hands-inside-pattern" }
+        )
+        var reference = user
+        reference.metrics.movement.handPath.takeawayInwardMovementShoulders = 0.07
+
+        let userValue = try XCTUnwrap(user.resolvedOverlay(for: finding)?.observedValue)
+        let referenceValue = try XCTUnwrap(
+            reference.resolvedOverlay(for: finding)?.observedValue
+        )
+        XCTAssertEqual(
+            userValue,
+            try XCTUnwrap(user.metrics.movement.handPath.takeawayInwardMovementShoulders)
+        )
+        XCTAssertEqual(referenceValue, 0.07)
+        XCTAssertNotEqual(userValue, referenceValue)
+    }
+
+    func testDownTheLineFindingIsNotResolvedAgainstFaceOnReference() throws {
+        let user = try SwingAnalysisEngine.analyze(
+            poseTrack: syntheticSwingTrack(),
+            context: SwingAnalysisContext(cameraView: .downTheLine, handedness: .right)
+        )
+        let finding = try XCTUnwrap(
+            user.findings.first { $0.id == "hands-inside-pattern" }
+        )
+        var faceOnReference = user
+        faceOnReference.context.cameraView = .faceOn
+
+        XCTAssertFalse(faceOnReference.supportsOverlay(.takeawayHandPath))
+        XCTAssertNil(faceOnReference.resolvedOverlay(for: finding))
+    }
+
+    func testHandPathEvidenceUsesTheExactValidMetricSamples() throws {
+        var track = syntheticSwingTrack()
+        let invalidTimes = [1.8, 1.9, 2.7, 2.8]
+        for index in track.frames.indices where invalidTimes.contains(where: {
+            abs(track.frames[index].timestampSeconds - $0) < 0.001
+        }) {
+            track.frames[index].joints.removeValue(forKey: .leftWrist)
+            track.frames[index].joints.removeValue(forKey: .rightWrist)
+        }
+
+        let result = try SwingAnalysisEngine.analyze(
+            poseTrack: track,
+            context: SwingAnalysisContext(cameraView: .downTheLine, handedness: .right)
+        )
+        let handPath = result.metrics.movement.handPath
+        let takeaway = try XCTUnwrap(
+            result.evidence.first { $0.id == "hand-takeaway" }
+        )
+        let transition = try XCTUnwrap(
+            result.evidence.first { $0.id == "hand-transition" }
+        )
+
+        XCTAssertEqual(
+            takeaway.timestampSeconds,
+            try XCTUnwrap(handPath.takeawaySampleSeconds),
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            transition.timestampSeconds,
+            try XCTUnwrap(handPath.transitionDownswingSeconds),
+            accuracy: 0.000_001
+        )
+        XCTAssertNotNil(takeaway.joints[.leftWrist])
+        XCTAssertNotNil(takeaway.joints[.rightWrist])
+        XCTAssertNotNil(transition.joints[.leftWrist])
+        XCTAssertNotNil(transition.joints[.rightWrist])
+    }
+
     func testManualReviewNavigationSelectsOnlyANearbyFinding() {
         let findings = [
             SwingFinding(
@@ -289,9 +503,9 @@ final class GeometryAndAnalysisTests: XCTestCase {
         let first = try XCTUnwrap(clips.first)
         let second = try XCTUnwrap(clips.last)
         XCTAssertEqual(first.events.topSeconds, 5.1, accuracy: 0.25)
-        XCTAssertEqual(first.events.impactSeconds, 5.7, accuracy: 0.25)
+        XCTAssertEqual(first.events.impactSeconds, 5.4, accuracy: 0.25)
         XCTAssertEqual(second.events.topSeconds, 16.1, accuracy: 0.25)
-        XCTAssertEqual(second.events.impactSeconds, 16.7, accuracy: 0.25)
+        XCTAssertEqual(second.events.impactSeconds, 16.4, accuracy: 0.25)
         XCTAssertLessThan(first.startSeconds, first.events.addressSeconds)
         XCTAssertGreaterThan(first.endSeconds, first.events.finishSeconds)
         XCTAssertLessThan(first.endSeconds, second.startSeconds)
@@ -406,8 +620,126 @@ final class GeometryAndAnalysisTests: XCTestCase {
         let clip = try XCTUnwrap(clips.first)
         XCTAssertEqual(clips.count, 1)
         XCTAssertEqual(clip.events.topSeconds, 2.5, accuracy: 0.25)
-        XCTAssertEqual(clip.events.impactSeconds, 3.1, accuracy: 0.30)
+        XCTAssertEqual(clip.events.impactSeconds, 2.7, accuracy: 0.30)
         XCTAssertGreaterThan(clip.confidence, 0.60)
+    }
+
+    func testAutomaticClipDetectorBridgesBriefWristOcclusion() throws {
+        var track = syntheticSwingTrack()
+        track.frames = track.frames.map { frame in
+            var modified = frame
+            // One wrist commonly disappears behind the club or torso. Around
+            // impact, both can disappear for several low-rate observations.
+            let frameNumber = Int((frame.timestampSeconds * 10).rounded())
+            if frame.timestampSeconds > 0, !frameNumber.isMultiple(of: 5) {
+                modified.joints[.rightWrist] = nil
+            }
+            if (2.7...3.1).contains(frame.timestampSeconds) {
+                modified.joints[.leftWrist] = nil
+            }
+            return modified
+        }
+
+        let strictTrajectory = BodyTrajectory.samples(
+            from: track.frames,
+            minimumConfidence: 0.30
+        )
+
+        let discoveryTrajectory = BodyTrajectory.samples(
+            from: track.frames,
+            minimumConfidence: 0.30,
+            maximumSampleGapSeconds: 0.75,
+            allowsSingleWristFallback: true
+        )
+        XCTAssertFalse(discoveryTrajectory.isEmpty)
+        XCTAssertLessThan(strictTrajectory.count, discoveryTrajectory.count)
+        XCTAssertEqual(Set(discoveryTrajectory.map(\.continuitySegment)), Set([0]))
+
+        let clips = try SwingClipDetector.detect(
+            in: track,
+            assetDuration: track.selectedRangeDurationSeconds,
+            minimumConfidence: 0.30
+        )
+        XCTAssertEqual(clips.count, 1)
+    }
+
+    func testAutomaticClipDetectorDoesNotSpikeWhenVisibleWristAlternates() throws {
+        var completeTrack = syntheticSwingTrack()
+        completeTrack.frames = completeTrack.frames.enumerated().map { index, frame in
+            guard var left = frame[.leftWrist], var right = frame[.rightWrist] else {
+                return frame
+            }
+            var modified = frame
+            let midpoint = SIMD2<Double>((left.x + right.x) / 2, (left.y + right.y) / 2)
+            let block = index / 5
+            let offset = block.isMultiple(of: 2)
+                ? SIMD2<Double>(0.02, 0)
+                : SIMD2<Double>(0.04, 0.02)
+            left.x = midpoint.x - offset.x / 2
+            left.y = midpoint.y - offset.y / 2
+            right.x = midpoint.x + offset.x / 2
+            right.y = midpoint.y + offset.y / 2
+            modified.joints[.leftWrist] = left
+            modified.joints[.rightWrist] = right
+            return modified
+        }
+        var alternatingTrack = completeTrack
+        alternatingTrack.frames = completeTrack.frames.enumerated().map { index, frame in
+            guard index > 0, !index.isMultiple(of: 5) else { return frame }
+            var modified = frame
+            if index.isMultiple(of: 2) {
+                modified.joints[.leftWrist] = nil
+            } else {
+                modified.joints[.rightWrist] = nil
+            }
+            return modified
+        }
+
+        let complete = BodyTrajectory.samples(
+            from: completeTrack.frames,
+            minimumConfidence: 0.30,
+            maximumSampleGapSeconds: 0.75,
+            allowsSingleWristFallback: true
+        )
+        let alternating = BodyTrajectory.samples(
+            from: alternatingTrack.frames,
+            minimumConfidence: 0.30,
+            maximumSampleGapSeconds: 0.75,
+            allowsSingleWristFallback: true
+        )
+        XCTAssertEqual(alternating.count, complete.count)
+        for (expected, actual) in zip(complete, alternating) {
+            XCTAssertEqual(actual.hands.x, expected.hands.x, accuracy: 0.000_001)
+            XCTAssertEqual(actual.hands.y, expected.hands.y, accuracy: 0.000_001)
+            XCTAssertEqual(actual.handSpeed, expected.handSpeed, accuracy: 0.000_001)
+        }
+
+        let clips = try SwingClipDetector.detect(
+            in: alternatingTrack,
+            assetDuration: alternatingTrack.selectedRangeDurationSeconds,
+            minimumConfidence: 0.30
+        )
+        XCTAssertEqual(clips.count, 1)
+    }
+
+    func testAutomaticClipDetectorUsesEarlySpeedWhenImpactHandsStayHigh() throws {
+        let samples = occludedImpactMotionTimeline()
+        let clip = try XCTUnwrap(SwingClipDetector.detect(samples: samples).first)
+
+        XCTAssertEqual(clip.events.topSeconds, 2.0, accuracy: 0.25)
+        XCTAssertGreaterThan(clip.events.impactSeconds, clip.events.topSeconds)
+        XCTAssertLessThanOrEqual(
+            clip.events.impactSeconds,
+            clip.events.topSeconds + 0.95 + 0.000_001
+        )
+        XCTAssertLessThan(clip.events.impactSeconds, 3.4)
+        XCTAssertGreaterThan(clip.events.finishSeconds, clip.events.impactSeconds)
+    }
+
+    func testAutomaticClipDetectorRejectsSpeedBurstWithoutPostTopReturn() {
+        XCTAssertTrue(SwingClipDetector.detect(
+            samples: raisedArmSpeedBurstTimeline()
+        ).isEmpty)
     }
 
     func testAutomaticClipDetectorDropsAssetBoundThatWouldCutAnEvent() throws {
@@ -844,6 +1176,75 @@ final class GeometryAndAnalysisTests: XCTestCase {
                 handHeight: height,
                 handSpeed: speed,
                 poseConfidence: 0.95
+            )
+        }
+    }
+
+    private func occludedImpactMotionTimeline() -> [SwingMotionSample] {
+        stride(from: 0.0, through: 5.0, by: 0.2).map { time in
+            let height: Double
+            let speed: Double
+            switch time {
+            case ..<1.0:
+                height = 0
+                speed = 0.04
+            case 1.0..<1.8:
+                height = (time - 1.0) / 0.8 * 0.52
+                speed = 0.68
+            case 1.8..<2.2:
+                height = 0.52
+                speed = 0.16
+            case 2.2..<2.8:
+                // Vision can keep the wrists near shoulder height through the
+                // strike even though the speed peak remains visible.
+                height = 0.43
+                speed = time < 2.6 ? 1.30 : 0.82
+            case 2.8..<3.8:
+                height = 0.46
+                speed = 0.18
+            case 3.8..<4.2:
+                // A late club-lowering motion must not replace the strike.
+                height = 0.04
+                speed = 1.45
+            default:
+                height = 0.02
+                speed = 0.04
+            }
+            return SwingMotionSample(
+                timestampSeconds: time,
+                handHeight: height,
+                handSpeed: speed,
+                poseConfidence: 0.92
+            )
+        }
+    }
+
+    private func raisedArmSpeedBurstTimeline() -> [SwingMotionSample] {
+        stride(from: 0.0, through: 5.0, by: 0.2).map { time in
+            let height: Double
+            let speed: Double
+            switch time {
+            case ..<1.0:
+                height = 0
+                speed = 0.04
+            case 1.0..<1.8:
+                height = (time - 1.0) / 0.8 * 0.52
+                speed = 0.68
+            case 1.8..<2.2:
+                height = 0.52
+                speed = 0.16
+            case 2.2..<2.8:
+                height = 0.50
+                speed = 1.30
+            default:
+                height = 0.50
+                speed = 0.18
+            }
+            return SwingMotionSample(
+                timestampSeconds: time,
+                handHeight: height,
+                handSpeed: speed,
+                poseConfidence: 0.92
             )
         }
     }

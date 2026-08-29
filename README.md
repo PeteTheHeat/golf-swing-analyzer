@@ -15,27 +15,31 @@ an original, local-first product for iOS 17 and newer. The current app can:
 
 - choose any video through Apple's limited Photos picker;
 - copy only that video into private app storage;
-- scan any viable imported video on-device and find multiple complete swing clips
+- scan imported long videos on-device and discover multiple complete swings
   automatically;
-- choose a detected clip or fall back to manual trim, then refine frame-snapped
-  in/out points;
-- move and trim a frame-snapped swing window;
+- treat each detected swing as a nondestructive clip range, or fall back to
+  manual trim, then refine its frame-snapped in/out points;
 - collect camera view, handedness, and club context;
 - extract 2D body pose on-device with Apple Vision;
 - identify address, top, impact, and finish from the selected motion;
 - calculate tempo, posture, joint, head, pelvis, and projected hand-path checks;
 - create a transparent 0–100 score with confidence-gated coaching notes;
+- link each finding to its evidence frame with metric-specific guides,
+  highlighted joints, baseline comparisons, hand paths, and measured values;
 - scrub an annotated review timeline and step frame by frame;
 - preserve completed reviews in a local SwiftData history;
 - delete a saved swing and its uniquely owned local media;
 - save an imported clip as a clearly labeled private, unverified reference;
-- phase-match a swing against a saved Best Swing or private reference.
+- phase-match a swing against a saved Best Swing or private reference;
+- keep private imports separate from a fail-closed bundled-reference catalog,
+  whose verified entries require allowed-use, license, attribution, source,
+  media, and analysis metadata.
 
 The app has no account, backend, analytics SDK, or CloudKit sync. User video and
-analysis stay on the iPhone. User-imported reference footage is private and is
-never presented as licensed. A future catalog can support rights-cleared coach
-or professional footage, but no third-party golfer footage ships in this
-repository.
+analysis stay on the iPhone. Its reference architecture is rights-aware:
+user-imported footage is always private and unverified, while bundled entries
+surface only after their distribution rights and supporting metadata validate.
+No third-party reference footage ships in this repository yet.
 
 Generate the Xcode project with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
@@ -47,7 +51,10 @@ open ios/SwingLab.xcodeproj
 Apple's simulator runtime can omit the model weights required by
 `VNDetectHumanBodyPoseRequest`, so final pose validation must run on a physical
 iPhone. The simulator still supports deterministic, explicitly labeled UI QA;
-see [`ios/README.md`](ios/README.md).
+see [`ios/README.md`](ios/README.md). Physical-device validation now passes on
+the two supplied long videos: the app found two swings in each video and
+completed all four full-rate Vision analyses without an error. The first
+TestFlight upload is still pending.
 
 ## What it produces
 
@@ -161,13 +168,14 @@ no network calls during analysis.
 
 ## Current roadmap
 
-1. Validate Vision analysis and performance on a physical iPhone, then ship the
-   first internal TestFlight build.
+1. Choose the shipping name and bundle identifier, then upload the first
+   internal TestFlight build.
 2. Validate automatic multi-swing discovery against a larger range of real
    phone videos.
 3. Add manual phase correction and an exported annotated slow-motion clip.
 4. Add optional, confidence-gated clubhead point tracking.
-5. Add rights-cleared instructor or professional reference footage.
+5. Populate the verified bundled-reference catalog with rights-cleared
+   instructor or professional footage.
 6. Support synchronized face-on and down-the-line videos for calibrated 3D
    work, rather than fabricating another view from one camera.
 

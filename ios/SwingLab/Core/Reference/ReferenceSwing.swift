@@ -129,6 +129,250 @@ struct ReferenceSwing: Identifiable {
     var id: String { descriptor.id }
 }
 
+/// One rights-audited reference shipped as an app resource. Unlike a local
+/// import, this record can only load when every distribution field is present
+/// and both the analyzed video and analysis JSON are inside the app bundle.
+struct BundledReferenceManifestEntry: Codable, Hashable, Identifiable, Sendable {
+    let id: String
+    var displayName: String
+    var golferName: String?
+    var sourceKind: ReferenceSwingDescriptor.SourceKind
+    var videoRelativePath: String
+    var analysisRelativePath: String
+    var cameraView: SwingCameraView
+    var handedness: GolferHandedness
+    var club: SwingClub
+    var licenseName: String
+    var attribution: String
+    var sourceURL: URL
+    var licenseURL: URL
+    var allowedUse: ReferenceAllowedUse
+    var rightsStatus: ReferenceRightsStatus
+
+    var descriptor: ReferenceSwingDescriptor {
+        ReferenceSwingDescriptor(
+            id: id,
+            displayName: displayName,
+            golferName: golferName,
+            sourceKind: sourceKind,
+            videoRelativePath: videoRelativePath,
+            cameraView: cameraView,
+            handedness: handedness,
+            club: club,
+            licenseName: licenseName,
+            attribution: attribution,
+            sourceURL: sourceURL,
+            licenseURL: licenseURL,
+            allowedUse: allowedUse,
+            rightsStatus: rightsStatus,
+            analysisJSON: ""
+        )
+    }
+}
+
+struct BundledReferenceManifest: Codable, Hashable, Sendable {
+    var schemaVersion: Int
+    var references: [BundledReferenceManifestEntry]
+}
+
+enum BundledReferenceCatalogError: LocalizedError, Equatable {
+    case unsupportedSchema(Int)
+    case duplicateID(String)
+    case invalidRights(String)
+    case unsafeResourcePath(String)
+    case missingResource(String)
+    case invalidAnalysis(String)
+    case metadataMismatch(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .unsupportedSchema(version):
+            "The bundled reference catalog uses unsupported schema version \(version)."
+        case let .duplicateID(id):
+            "The bundled reference catalog contains duplicate ID \(id)."
+        case let .invalidRights(id):
+            "Reference \(id) is missing verified distribution rights."
+        case let .unsafeResourcePath(path):
+            "Reference resource path \(path) is not a safe bundle-relative path."
+        case let .missingResource(path):
+            "Reference resource \(path) is missing from this build."
+        case let .invalidAnalysis(id):
+            "Reference \(id) does not contain a readable swing analysis."
+        case let .metadataMismatch(id):
+            "Reference \(id) analysis does not match its catalog camera or golfer metadata."
+        }
+    }
+}
+
+enum BundledReferenceCatalog {
+    private static let supportedSchemaVersion = 1
+
+    static func entries(in bundle: Bundle = .main) throws -> [BundledReferenceManifestEntry] {
+        guard let manifestURL = bundle.url(
+            forResource: "ReferenceCatalog",
+            withExtension: "json"
+        ) else {
+            return []
+        }
+        return try validatedEntries(from: Data(contentsOf: manifestURL))
+    }
+
+    static func validatedEntries(from data: Data) throws -> [BundledReferenceManifestEntry] {
+        let manifest = try JSONDecoder().decode(BundledReferenceManifest.self, from: data)
+        guard manifest.schemaVersion == supportedSchemaVersion else {
+            throw BundledReferenceCatalogError.unsupportedSchema(manifest.schemaVersion)
+        }
+
+        var ids: Set<String> = []
+        for entry in manifest.references {
+            let trimmedID = entry.id.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedID.isEmpty, trimmedID == entry.id else {
+                throw BundledReferenceCatalogError.invalidRights(entry.id)
+            }
+            guard ids.insert(trimmedID).inserted else {
+                throw BundledReferenceCatalogError.duplicateID(entry.id)
+            }
+            guard entry.descriptor.isDistributionReady else {
+                throw BundledReferenceCatalogError.invalidRights(entry.id)
+            }
+            for path in [entry.videoRelativePath, entry.analysisRelativePath]
+            where !isSafeRelativeResourcePath(path) {
+                throw BundledReferenceCatalogError.unsafeResourcePath(path)
+            }
+        }
+        return manifest.references
+    }
+
+    @MainActor
+    static func load(
+        _ entry: BundledReferenceManifestEntry,
+        from bundle: Bundle = .main
+    ) async throws -> ReferenceSwing {
+        guard entry.descriptor.isDistributionReady else {
+            throw BundledReferenceCatalogError.invalidRights(entry.id)
+        }
+        let videoURL = try resourceURL(
+            for: entry.videoRelativePath,
+            in: bundle
+        )
+        let analysisURL = try resourceURL(
+            for: entry.analysisRelativePath,
+            in: bundle
+        )
+        let analysisData = try Data(contentsOf: analysisURL)
+        guard let analysis = try? JSONDecoder().decode(
+            SwingAnalysisResult.self,
+            from: analysisData
+        ) else {
+            throw BundledReferenceCatalogError.invalidAnalysis(entry.id)
+        }
+        guard analysis.context.cameraView == entry.cameraView,
+              analysis.context.handedness == entry.handedness else {
+            throw BundledReferenceCatalogError.metadataMismatch(entry.id)
+        }
+
+        let video = try await ImportedVideoValidator.validate(
+            storedFileURL: videoURL,
+            displayName: entry.displayName
+        )
+        guard analysisTimelineIsValid(
+            track: analysis.poseTrack,
+            events: analysis.events,
+            videoDuration: video.durationSeconds,
+            tolerance: video.frameDurationSeconds
+        ) else {
+            throw BundledReferenceCatalogError.invalidAnalysis(entry.id)
+        }
+
+        var descriptor = entry.descriptor
+        descriptor.analysisJSON = String(decoding: analysisData, as: UTF8.self)
+        return ReferenceSwing(
+            descriptor: descriptor,
+            video: video,
+            analysis: analysis
+        )
+    }
+
+    static func analysisTimelineIsValid(
+        track: PoseTrack,
+        events: SwingEventTimestamps,
+        videoDuration: Double,
+        tolerance: Double
+    ) -> Bool {
+        let start = track.selectedRangeStartSeconds
+        let duration = track.selectedRangeDurationSeconds
+        let end = start + duration
+        let slack = max(0, tolerance)
+        let eventTimes = [
+            events.addressSeconds,
+            events.topSeconds,
+            events.impactSeconds,
+            events.finishSeconds,
+        ]
+        let frameTimes = track.frames.map(\.timestampSeconds)
+        guard start.isFinite,
+              duration.isFinite,
+              end.isFinite,
+              videoDuration.isFinite,
+              videoDuration > 0,
+              duration > 0,
+              start >= 0,
+              end <= videoDuration + slack,
+              !frameTimes.isEmpty,
+              frameTimes.allSatisfy(\.isFinite),
+              zip(frameTimes, frameTimes.dropFirst()).allSatisfy({ pair in
+                  pair.0 <= pair.1
+              }),
+              frameTimes.allSatisfy({ $0 >= start - slack && $0 <= end + slack }),
+              eventTimes.allSatisfy(\.isFinite),
+              events.addressSeconds < events.topSeconds,
+              events.topSeconds < events.impactSeconds,
+              events.impactSeconds < events.finishSeconds
+        else {
+            return false
+        }
+        return frameTimes[0] <= events.addressSeconds + slack
+            && frameTimes[frameTimes.count - 1] >= events.finishSeconds - slack
+            && eventTimes.allSatisfy { time in
+            time >= start - slack && time <= end + slack
+        }
+    }
+
+    static func isSafeRelativeResourcePath(_ path: String) -> Bool {
+        guard !path.isEmpty,
+              path == path.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.hasPrefix("/"),
+              !path.contains("\\") else {
+            return false
+        }
+        let components = NSString(string: path).pathComponents
+        return !components.contains(".") && !components.contains("..")
+    }
+
+    private static func resourceURL(
+        for relativePath: String,
+        in bundle: Bundle
+    ) throws -> URL {
+        guard isSafeRelativeResourcePath(relativePath) else {
+            throw BundledReferenceCatalogError.unsafeResourcePath(relativePath)
+        }
+        guard let resourceRoot = bundle.resourceURL?.standardizedFileURL else {
+            throw BundledReferenceCatalogError.missingResource(relativePath)
+        }
+        let url = resourceRoot
+            .appendingPathComponent(relativePath, isDirectory: false)
+            .standardizedFileURL
+        let rootPath = resourceRoot.path.hasSuffix("/")
+            ? resourceRoot.path
+            : resourceRoot.path + "/"
+        guard url.path.hasPrefix(rootPath),
+              FileManager.default.fileExists(atPath: url.path) else {
+            throw BundledReferenceCatalogError.missingResource(relativePath)
+        }
+        return url
+    }
+}
+
 enum ReferenceSwingDescriptorFactory {
     static func make(from session: SwingSession) -> ReferenceSwingDescriptor? {
         guard session.analysisStatus == .complete,

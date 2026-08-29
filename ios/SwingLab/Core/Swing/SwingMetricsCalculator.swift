@@ -5,6 +5,11 @@ struct SwingMeasurementOutput: Sendable {
     var evidence: [SwingEvidence]
 }
 
+private struct MovementPeak: Sendable {
+    var value: Double
+    var timestampSeconds: Double
+}
+
 enum SwingMetricsCalculator {
     static func calculate(
         track: PoseTrack,
@@ -100,8 +105,13 @@ enum SwingMetricsCalculator {
             cameraView: context.cameraView
         )
         let movement = SwingMovementMetrics(
-            maximumHeadMovementShoulders: maximumHeadMovement.map { rounded($0, digits: 2) },
-            maximumPelvisMovementShoulders: maximumPelvisMovement.map { rounded($0, digits: 2) },
+            maximumHeadMovementShoulders: maximumHeadMovement.map {
+                rounded($0.value, digits: 2)
+            },
+            maximumHeadMovementTimestampSeconds: maximumHeadMovement?.timestampSeconds,
+            maximumPelvisMovementShoulders: maximumPelvisMovement.map {
+                rounded($0.value, digits: 2)
+            },
             addressToImpactTorsoChangeDegrees: postureChange,
             handPath: handPath
         )
@@ -124,8 +134,29 @@ enum SwingMetricsCalculator {
                 measurements: evidenceMeasurements(metrics[phase])
             )
         }
-        let takeawayTime = events.addressSeconds +
-            (events.topSeconds - events.addressSeconds) * 0.35
+        if let maximumHeadMovement,
+           let frame = nearestFrame(
+               in: track.frames,
+               to: maximumHeadMovement.timestampSeconds
+           ) {
+            evidence.append(
+                SwingEvidence(
+                    id: "head-peak",
+                    label: "Peak head movement",
+                    phase: .impact,
+                    timestampSeconds: frame.timestampSeconds,
+                    joints: frame.joints,
+                    measurements: [
+                        "maximumHeadMovementShoulders": rounded(
+                            maximumHeadMovement.value,
+                            digits: 2
+                        ),
+                    ]
+                )
+            )
+        }
+        let takeawayTime = handPath.takeawaySampleSeconds
+            ?? events.addressSeconds + (events.topSeconds - events.addressSeconds) * 0.35
         if let frame = nearestFrame(in: track.frames, to: takeawayTime),
            let inward = handPath.takeawayInwardMovementShoulders {
             evidence.append(
@@ -139,8 +170,22 @@ enum SwingMetricsCalculator {
                 )
             )
         }
-        let transitionTime = events.topSeconds +
-            (events.impactSeconds - events.topSeconds) * 0.35
+        let transitionTime = handPath.transitionDownswingSeconds
+            ?? events.topSeconds + (events.impactSeconds - events.topSeconds) * 0.35
+        if let matchedBackswingSeconds = handPath.matchedBackswingSeconds,
+           let frame = nearestFrame(in: track.frames, to: matchedBackswingSeconds),
+           let outward = handPath.transitionOutwardLoopShoulders {
+            evidence.append(
+                SwingEvidence(
+                    id: "hand-transition-backswing",
+                    label: "Matched backswing hand height",
+                    phase: .top,
+                    timestampSeconds: frame.timestampSeconds,
+                    joints: frame.joints,
+                    measurements: ["transitionOutwardLoopShoulders": outward]
+                )
+            )
+        }
         if let frame = nearestFrame(in: track.frames, to: transitionTime),
            let outward = handPath.transitionOutwardLoopShoulders {
             evidence.append(
@@ -395,12 +440,19 @@ enum SwingMetricsCalculator {
             outward = nil
         }
 
-        let confidence = [address, takeaway, downswing]
+        var confidenceSamples = [address, takeaway, downswing]
+        if let matchedBackswing {
+            confidenceSamples.append(matchedBackswing)
+        }
+        let confidence = confidenceSamples
             .map { min($0.hands.confidence, $0.pelvis?.confidence ?? 0) }
-            .reduce(0, +) / 3
+            .reduce(0, +) / Double(confidenceSamples.count)
         return SwingHandPathMetrics(
             takeawayInwardMovementShoulders: rounded(inward, digits: 2),
             transitionOutwardLoopShoulders: outward.map { rounded($0, digits: 2) },
+            takeawaySampleSeconds: takeaway.timestamp,
+            matchedBackswingSeconds: matchedBackswing?.timestamp,
+            transitionDownswingSeconds: downswing.timestamp,
             measurementConfidence: rounded(confidence, digits: 2),
             scope: handPathScope(cameraView)
         )
@@ -413,18 +465,32 @@ enum SwingMetricsCalculator {
         secondJoint: PoseJoint?,
         shoulderWidth: Double,
         minimumConfidence: Double
-    ) -> Double? {
+    ) -> MovementPeak? {
         guard let reference else { return nil }
-        let points: [PosePoint]
+        let samples: [(timestamp: Double, point: PosePoint)]
         if let firstJoint, let secondJoint {
-            points = frames.compactMap {
-                $0.midpoint(firstJoint, secondJoint, minimumConfidence: minimumConfidence)
+            samples = frames.compactMap { frame in
+                frame.midpoint(
+                    firstJoint,
+                    secondJoint,
+                    minimumConfidence: minimumConfidence
+                ).map { (timestamp: frame.timestampSeconds, point: $0) }
             }
         } else {
-            points = frames.compactMap { $0.headCenter(minimumConfidence: minimumConfidence) }
+            samples = frames.compactMap { frame in
+                frame.headCenter(minimumConfidence: minimumConfidence).map {
+                    (timestamp: frame.timestampSeconds, point: $0)
+                }
+            }
         }
-        guard !points.isEmpty else { return nil }
-        return points.map { PoseGeometry.distance($0, reference) / shoulderWidth }.max()
+        guard let peak = samples.max(by: {
+            PoseGeometry.distance($0.point, reference)
+                < PoseGeometry.distance($1.point, reference)
+        }) else { return nil }
+        return MovementPeak(
+            value: PoseGeometry.distance(peak.point, reference) / shoulderWidth,
+            timestampSeconds: peak.timestamp
+        )
     }
 
     private static func nearestFrame(in frames: [PoseFrame], to timestamp: Double) -> PoseFrame? {

@@ -181,7 +181,20 @@ public enum SwingFindingEngine {
                 severity: severity,
                 confidence: min(events.confidence, min(metrics.top.poseConfidence, metrics.impact.poseConfidence)),
                 evidenceIDs: ["event-address", "event-top", "event-impact"],
-                caveat: "Tempo is descriptive; there is no single correct ratio for every golfer."
+                caveat: "Tempo is descriptive; there is no single correct ratio for every golfer.",
+                overlay: SwingFindingOverlay(
+                    kind: .tempo,
+                    baselineEvidenceID: "event-address",
+                    primaryEvidenceID: "event-top",
+                    highlightedJoints: [
+                        .leftShoulder, .rightShoulder, .leftWrist, .rightWrist,
+                    ],
+                    measurementLabel: "Tempo ratio",
+                    observedValue: ratio,
+                    warningBelow: 2.2,
+                    warningAbove: 4.0,
+                    unit: .ratio
+                )
             ),
         ]
     }
@@ -206,8 +219,9 @@ public enum SwingFindingEngine {
                     phase: .impact,
                     severity: .priority,
                     confidence: min(events.confidence, metrics.impact.poseConfidence),
-                    evidenceIDs: ["event-address", "event-impact", "event-finish"],
-                    caveat: "A single 2D view cannot distinguish lateral sway, depth, rotation, or camera parallax."
+                    evidenceIDs: ["event-address", "head-peak", "event-finish"],
+                    caveat: "A single 2D view cannot distinguish lateral sway, depth, rotation, or camera parallax.",
+                    overlay: headMovementOverlay(observedValue: movement)
                 ),
             ]
         }
@@ -220,8 +234,9 @@ public enum SwingFindingEngine {
                 phase: .impact,
                 severity: .good,
                 confidence: min(events.confidence, metrics.impact.poseConfidence),
-                evidenceIDs: ["event-address", "event-impact"],
-                caveat: "This does not measure pressure shift or true depth."
+                evidenceIDs: ["event-address", "head-peak"],
+                caveat: "This does not measure pressure shift or true depth.",
+                overlay: headMovementOverlay(observedValue: movement)
             ),
         ]
     }
@@ -244,7 +259,19 @@ public enum SwingFindingEngine {
                 severity: difference >= 15 ? .watch : .info,
                 confidence: metrics.address.poseConfidence,
                 evidenceIDs: ["event-address"],
-                caveat: "Perspective changes joint angles, so asymmetry alone is not a fault."
+                caveat: "Perspective changes joint angles, so asymmetry alone is not a fault.",
+                overlay: SwingFindingOverlay(
+                    kind: .kneeGeometry,
+                    primaryEvidenceID: "event-address",
+                    highlightedJoints: [
+                        .leftHip, .rightHip, .leftKnee, .rightKnee,
+                        .leftAnkle, .rightAnkle,
+                    ],
+                    measurementLabel: "Knee-angle difference",
+                    observedValue: difference,
+                    warningAbove: 15,
+                    unit: .degrees
+                )
             ),
         ]
     }
@@ -271,7 +298,20 @@ public enum SwingFindingEngine {
                 severity: .priority,
                 confidence: min(metrics.address.poseConfidence, metrics.impact.poseConfidence) * 0.88,
                 evidenceIDs: ["event-address", "event-impact"],
-                caveat: "This is an early-extension hypothesis only. Rotation and perspective can create the same 2D torso change."
+                caveat: "This is an early-extension hypothesis only. Rotation and perspective can create the same 2D torso change.",
+                overlay: SwingFindingOverlay(
+                    kind: .torsoPosture,
+                    baselineEvidenceID: "event-address",
+                    primaryEvidenceID: "event-impact",
+                    highlightedJoints: [
+                        .nose, .neck, .leftShoulder, .rightShoulder,
+                        .leftHip, .rightHip,
+                    ],
+                    measurementLabel: "Torso change",
+                    observedValue: change,
+                    warningAbove: 10,
+                    unit: .degrees
+                )
             ),
         ]
     }
@@ -298,7 +338,13 @@ public enum SwingFindingEngine {
                 severity: .watch,
                 confidence: handPath.measurementConfidence * 0.86,
                 evidenceIDs: ["event-address", "hand-takeaway"],
-                caveat: "This is a hands-too-inside body-pose pattern, not a measurement of clubhead or club path."
+                caveat: "This is a hands-too-inside body-pose pattern, not a measurement of clubhead or club path.",
+                overlay: handPathOverlay(
+                    kind: .takeawayHandPath,
+                    label: "Inward hand travel",
+                    observedValue: inward,
+                    warningAbove: 0.28
+                )
             ),
         ]
     }
@@ -324,13 +370,62 @@ public enum SwingFindingEngine {
                 phase: .top,
                 severity: .watch,
                 confidence: handPath.measurementConfidence * 0.72,
-                evidenceIDs: ["event-top", "hand-transition"],
-                caveat: "This body-pose loop can be consistent with an over-the-top pattern, but it does not prove club path, shaft plane, or face direction."
+                evidenceIDs: [
+                    "event-top", "hand-transition-backswing", "hand-transition",
+                ],
+                caveat: "This body-pose loop can be consistent with an over-the-top pattern, but it does not prove club path, shaft plane, or face direction.",
+                overlay: handPathOverlay(
+                    kind: .transitionHandPath,
+                    label: "Outward hand loop",
+                    observedValue: outward,
+                    warningAbove: 0.22
+                )
             ),
         ]
     }
 
     private static func format(_ value: Double, _ digits: Int) -> String {
         String(format: "%.*f", digits, value)
+    }
+
+    private static func headMovementOverlay(observedValue: Double) -> SwingFindingOverlay {
+        SwingFindingOverlay(
+            kind: .headMovement,
+            baselineEvidenceID: "event-address",
+            primaryEvidenceID: "head-peak",
+            highlightedJoints: [
+                .nose, .leftEye, .rightEye, .leftEar, .rightEar,
+                .leftShoulder, .rightShoulder,
+            ],
+            measurementLabel: "Head travel",
+            observedValue: observedValue,
+            warningAbove: 0.45,
+            unit: .shoulderWidths
+        )
+    }
+
+    private static func handPathOverlay(
+        kind: SwingFindingOverlay.Kind,
+        label: String,
+        observedValue: Double,
+        warningAbove: Double
+    ) -> SwingFindingOverlay {
+        SwingFindingOverlay(
+            kind: kind,
+            baselineEvidenceID: kind == .takeawayHandPath
+                ? "event-address"
+                : "hand-transition-backswing",
+            primaryEvidenceID: kind == .takeawayHandPath
+                ? "hand-takeaway"
+                : "hand-transition",
+            highlightedJoints: [
+                .leftShoulder, .rightShoulder, .leftElbow, .rightElbow,
+                .leftWrist, .rightWrist, .leftHip, .rightHip,
+            ],
+            measurementLabel: label,
+            observedValue: observedValue,
+            warningAbove: warningAbove,
+            unit: .shoulderWidths
+        )
     }
 }

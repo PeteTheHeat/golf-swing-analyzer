@@ -90,19 +90,20 @@ and an internally verified rights status.
 
 ## Acceptance status
 
-- Complete: 63 native tests cover trim invariants, automatic multi-swing
+- Complete: 79 native tests cover trim invariants, automatic multi-swing
   discovery, noise and duplicate rejection, geometry, event ordering, scoring,
   confidence, critique thresholds, persistence, and media ownership.
 - Complete: the real Photos picker, import, trim, clip-position, and analysis
   entry flow were visually checked in the simulator with the supplied videos.
 - Complete: simulator and generic-device Release builds pass, and a signed
   development archive validates against Apple's certificate chain.
-- Pending: run Vision pose extraction with a supplied video on a physical
-  iPhone; the installed simulator runtime lacks its body-pose model weights.
+- Complete: a physical iPhone found exactly two swings in each supplied long
+  video, then completed all four full-rate Vision analyses without an error.
 - Pending: visually verify the complete saved-review and comparison journey on
   a physical iPhone.
 - Complete: an Apple development team and managed signing profile are selected
   in the local Xcode project; no signing credential is committed.
-- Pending: enable Developer Mode on the paired iPhone, validate the full flow on
-  that device, choose the shipping name, upload the archive, wait for processing,
-  and install through TestFlight.
+- Complete: Developer Mode is enabled, signing includes the paired iPhone, and
+  a development build installs and launches on that device.
+- Pending: choose the shipping name, create the App Store Connect record,
+  upload the archive, wait for processing, and install through TestFlight.

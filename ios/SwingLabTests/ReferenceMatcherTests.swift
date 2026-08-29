@@ -147,4 +147,168 @@ final class ReferenceMatcherTests: XCTestCase {
         XCTAssertFalse(session.isPersonalSwing)
         XCTAssertNil(ReferenceSwingDescriptorFactory.make(from: session))
     }
+
+    func testBundledCatalogAcceptsCompleteDistributionManifest() throws {
+        let data = try JSONEncoder().encode(BundledReferenceManifest(
+            schemaVersion: 1,
+            references: [validBundledReference()]
+        ))
+
+        let entries = try BundledReferenceCatalog.validatedEntries(from: data)
+
+        XCTAssertEqual(entries.map(\.id), ["licensed-driver"])
+        XCTAssertTrue(entries[0].descriptor.isDistributionReady)
+    }
+
+    func testBundledCatalogRejectsUnverifiedRights() throws {
+        var entry = validBundledReference()
+        entry.rightsStatus = .unverified
+        let data = try JSONEncoder().encode(BundledReferenceManifest(
+            schemaVersion: 1,
+            references: [entry]
+        ))
+
+        XCTAssertThrowsError(try BundledReferenceCatalog.validatedEntries(from: data)) {
+            XCTAssertEqual(
+                $0 as? BundledReferenceCatalogError,
+                .invalidRights("licensed-driver")
+            )
+        }
+    }
+
+    func testBundledCatalogRejectsDuplicateIDs() throws {
+        let entry = validBundledReference()
+        let data = try JSONEncoder().encode(BundledReferenceManifest(
+            schemaVersion: 1,
+            references: [entry, entry]
+        ))
+
+        XCTAssertThrowsError(try BundledReferenceCatalog.validatedEntries(from: data)) {
+            XCTAssertEqual(
+                $0 as? BundledReferenceCatalogError,
+                .duplicateID("licensed-driver")
+            )
+        }
+    }
+
+    func testBundledCatalogRejectsUnsafeResourcePath() throws {
+        var entry = validBundledReference()
+        entry.videoRelativePath = "../private.mov"
+        let data = try JSONEncoder().encode(BundledReferenceManifest(
+            schemaVersion: 1,
+            references: [entry]
+        ))
+
+        XCTAssertThrowsError(try BundledReferenceCatalog.validatedEntries(from: data)) {
+            XCTAssertEqual(
+                $0 as? BundledReferenceCatalogError,
+                .unsafeResourcePath("../private.mov")
+            )
+        }
+    }
+
+    func testBundledCatalogRejectsBlankID() throws {
+        let entry = validBundledReference(id: " ")
+        let data = try JSONEncoder().encode(BundledReferenceManifest(
+            schemaVersion: 1,
+            references: [entry]
+        ))
+
+        XCTAssertThrowsError(try BundledReferenceCatalog.validatedEntries(from: data)) {
+            XCTAssertEqual(
+                $0 as? BundledReferenceCatalogError,
+                .invalidRights(" ")
+            )
+        }
+    }
+
+    func testBundledCatalogRejectsInvalidAnalysisTimeline() {
+        let validTrack = PoseTrack(
+            selectedRangeStartSeconds: 1,
+            selectedRangeDurationSeconds: 4,
+            nominalSampleRate: 15,
+            orientation: .up,
+            frames: [
+                PoseFrame(timestampSeconds: 1.5, joints: [:]),
+                PoseFrame(timestampSeconds: 4.5, joints: [:]),
+            ]
+        )
+        let validEvents = SwingEventTimestamps(
+            addressSeconds: 1.5,
+            topSeconds: 2.5,
+            impactSeconds: 3,
+            finishSeconds: 4.5,
+            confidence: 0.9
+        )
+
+        XCTAssertTrue(BundledReferenceCatalog.analysisTimelineIsValid(
+            track: validTrack,
+            events: validEvents,
+            videoDuration: 8,
+            tolerance: 1.0 / 30
+        ))
+
+        var invalidDurationTrack = validTrack
+        invalidDurationTrack.selectedRangeDurationSeconds = -1
+        XCTAssertFalse(BundledReferenceCatalog.analysisTimelineIsValid(
+            track: invalidDurationTrack,
+            events: validEvents,
+            videoDuration: 8,
+            tolerance: 1.0 / 30
+        ))
+
+        let unorderedEvents = SwingEventTimestamps(
+            addressSeconds: 1.5,
+            topSeconds: 3.2,
+            impactSeconds: 3,
+            finishSeconds: 4.5,
+            confidence: 0.9
+        )
+        XCTAssertFalse(BundledReferenceCatalog.analysisTimelineIsValid(
+            track: validTrack,
+            events: unorderedEvents,
+            videoDuration: 8,
+            tolerance: 1.0 / 30
+        ))
+
+        var outsideEvents = validEvents
+        outsideEvents.finishSeconds = 5.5
+        XCTAssertFalse(BundledReferenceCatalog.analysisTimelineIsValid(
+            track: validTrack,
+            events: outsideEvents,
+            videoDuration: 8,
+            tolerance: 1.0 / 30
+        ))
+
+        var emptyTrack = validTrack
+        emptyTrack.frames = []
+        XCTAssertFalse(BundledReferenceCatalog.analysisTimelineIsValid(
+            track: emptyTrack,
+            events: validEvents,
+            videoDuration: 8,
+            tolerance: 1.0 / 30
+        ))
+    }
+
+    private func validBundledReference(
+        id: String = "licensed-driver"
+    ) -> BundledReferenceManifestEntry {
+        BundledReferenceManifestEntry(
+            id: id,
+            displayName: "Licensed driver",
+            golferName: "Reference golfer",
+            sourceKind: .instructor,
+            videoRelativePath: "References/driver.mov",
+            analysisRelativePath: "References/driver.json",
+            cameraView: .downTheLine,
+            handedness: .right,
+            club: .driver,
+            licenseName: "Commercial video license",
+            attribution: "Example Golf Studio",
+            sourceURL: URL(string: "https://example.com/source")!,
+            licenseURL: URL(string: "https://example.com/license")!,
+            allowedUse: .distributionAllowed,
+            rightsStatus: .verified
+        )
+    }
 }
