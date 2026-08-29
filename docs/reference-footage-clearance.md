@@ -40,6 +40,13 @@ authorized to bind the copyright owner or golfer. Store the signed release
 privately. Never commit signatures, addresses, private contact details, or
 payment terms to this repository.
 
+For a private signed release, assign a non-sensitive lookup ID in the form
+`RC-REF-YYYY-NNNN`. Put only that ID in the bundled catalog as
+`verificationRecordID`, with `rightsBasis` set to `signedRelease`. Do not add
+the contract filename, storage path, URL, signer email, or contract text. A
+public-license entry instead uses `rightsBasis: publicLicense`, omits the
+verification record ID, and must retain valid public source and license URLs.
+
 ## Media preparation after clearance
 
 Create separate face-on and down-the-line assets for each supported club. Then:

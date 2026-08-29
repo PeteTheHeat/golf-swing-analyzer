@@ -326,18 +326,41 @@ struct SwingComparisonView: View {
                     }
                 }
 
-                Section("Rights") {
+                Section {
+                    LabeledContent(
+                        "Basis",
+                        value: reference.descriptor.rightsBasis.displayName
+                    )
                     if let attribution = reference.descriptor.attribution {
                         LabeledContent("Attribution", value: attribution)
                     }
                     if let licenseName = reference.descriptor.licenseName {
-                        LabeledContent("License", value: licenseName)
+                        LabeledContent(
+                            reference.descriptor.rightsBasis == .signedRelease
+                                ? "Release"
+                                : "License",
+                            value: licenseName
+                        )
+                    }
+                    if reference.descriptor.rightsBasis == .signedRelease,
+                       let recordID = reference.descriptor.verificationRecordID {
+                        LabeledContent("Verification record", value: recordID)
                     }
                     if let sourceURL = reference.descriptor.sourceURL {
                         Link("Open source page", destination: sourceURL)
                     }
-                    if let licenseURL = reference.descriptor.licenseURL {
+                    if reference.descriptor.rightsBasis == .publicLicense,
+                       let licenseURL = reference.descriptor.licenseURL {
                         Link("Open license", destination: licenseURL)
+                    }
+                } header: {
+                    Text("Rights")
+                } footer: {
+                    if reference.descriptor.rightsBasis == .signedRelease {
+                        Text(
+                            "The signed release is stored privately outside "
+                                + "this app and is not included in this build."
+                        )
                     }
                 }
             }

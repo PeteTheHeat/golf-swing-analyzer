@@ -18,6 +18,26 @@ enum ReferenceRightsStatus: String, Codable, CaseIterable, Sendable {
     case unknown
 }
 
+/// Identifies the evidence used to approve bundled reference footage. A signed
+/// release stays outside the app and repository; only its opaque verification
+/// record ID belongs in the catalog.
+enum ReferenceRightsBasis: String, Codable, CaseIterable, Sendable {
+    case publicLicense
+    case signedRelease
+    case unknown
+
+    var displayName: String {
+        switch self {
+        case .publicLicense:
+            "Public license"
+        case .signedRelease:
+            "Signed release"
+        case .unknown:
+            "Unverified"
+        }
+    }
+}
+
 /// User-entered labels for a locally imported comparison swing. These labels
 /// do not confer distribution rights. Local imports remain private and
 /// unverified even when the user supplies a golfer name.
@@ -72,6 +92,10 @@ struct ReferenceSwingDescriptor: Codable, Hashable, Identifiable, Sendable {
     var attribution: String?
     var sourceURL: URL?
     var licenseURL: URL?
+    var rightsBasis: ReferenceRightsBasis
+    /// An opaque, non-sensitive lookup ID such as `RC-REF-2026-0001`. The
+    /// signed agreement itself must never be bundled or committed.
+    var verificationRecordID: String?
     var allowedUse: ReferenceAllowedUse
     var rightsStatus: ReferenceRightsStatus
     var analysisJSON: String
@@ -95,13 +119,26 @@ struct ReferenceSwingDescriptor: Codable, Hashable, Identifiable, Sendable {
               rightsStatus == .verified,
               sourceKind == .licensedProfessional || sourceKind == .instructor,
               Self.nonblank(displayName) != nil,
+              Self.nonblank(golferName) != nil,
               Self.nonblank(licenseName) != nil,
-              Self.nonblank(attribution) != nil,
-              Self.isValidWebURL(sourceURL),
-              Self.isValidWebURL(licenseURL) else {
+              Self.nonblank(attribution) != nil else {
             return false
         }
-        return true
+
+        switch rightsBasis {
+        case .publicLicense:
+            return verificationRecordID == nil
+                && Self.isValidWebURL(sourceURL)
+                && Self.isValidWebURL(licenseURL)
+
+        case .signedRelease:
+            return Self.isValidVerificationRecordID(verificationRecordID)
+                && licenseURL == nil
+                && Self.isNilOrValidWebURL(sourceURL)
+
+        case .unknown:
+            return false
+        }
     }
 
     private static func nonblank(_ value: String?) -> String? {
@@ -118,6 +155,83 @@ struct ReferenceSwingDescriptor: Codable, Hashable, Identifiable, Sendable {
             return false
         }
         return true
+    }
+
+    private static func isNilOrValidWebURL(_ url: URL?) -> Bool {
+        url == nil || isValidWebURL(url)
+    }
+
+    /// Verification IDs are deliberately constrained so a URL, file path,
+    /// email address, contract filename, or free-form private note cannot be
+    /// put into the distributable manifest by mistake.
+    private static func isValidVerificationRecordID(_ value: String?) -> Bool {
+        guard let value,
+              value == value.trimmingCharacters(in: .whitespacesAndNewlines),
+              value.utf8.count == value.count else {
+            return false
+        }
+        let components = value.split(separator: "-", omittingEmptySubsequences: false)
+        guard components.count == 4,
+              components[0] == "RC",
+              components[1] == "REF" else {
+            return false
+        }
+        return components[2...3].allSatisfy { component in
+            component.utf8.count == 4
+                && component.utf8.allSatisfy { (48...57).contains($0) }
+        }
+    }
+}
+
+extension ReferenceSwingDescriptor {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case displayName
+        case golferName
+        case sourceKind
+        case videoRelativePath
+        case cameraView
+        case handedness
+        case club
+        case licenseName
+        case attribution
+        case sourceURL
+        case licenseURL
+        case rightsBasis
+        case verificationRecordID
+        case allowedUse
+        case rightsStatus
+        case analysisJSON
+    }
+
+    /// Older private descriptors predate rights-basis metadata. Missing proof
+    /// decodes as unknown, which keeps those references usable only as private
+    /// comparisons and can never elevate them to a bundled reference.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        displayName = try values.decode(String.self, forKey: .displayName)
+        golferName = try values.decodeIfPresent(String.self, forKey: .golferName)
+        sourceKind = try values.decode(SourceKind.self, forKey: .sourceKind)
+        videoRelativePath = try values.decode(String.self, forKey: .videoRelativePath)
+        cameraView = try values.decode(SwingCameraView.self, forKey: .cameraView)
+        handedness = try values.decode(GolferHandedness.self, forKey: .handedness)
+        club = try values.decode(SwingClub.self, forKey: .club)
+        licenseName = try values.decodeIfPresent(String.self, forKey: .licenseName)
+        attribution = try values.decodeIfPresent(String.self, forKey: .attribution)
+        sourceURL = try values.decodeIfPresent(URL.self, forKey: .sourceURL)
+        licenseURL = try values.decodeIfPresent(URL.self, forKey: .licenseURL)
+        rightsBasis = try values.decodeIfPresent(
+            ReferenceRightsBasis.self,
+            forKey: .rightsBasis
+        ) ?? .unknown
+        verificationRecordID = try values.decodeIfPresent(
+            String.self,
+            forKey: .verificationRecordID
+        )
+        allowedUse = try values.decode(ReferenceAllowedUse.self, forKey: .allowedUse)
+        rightsStatus = try values.decode(ReferenceRightsStatus.self, forKey: .rightsStatus)
+        analysisJSON = try values.decode(String.self, forKey: .analysisJSON)
     }
 }
 
@@ -144,8 +258,10 @@ struct BundledReferenceManifestEntry: Codable, Hashable, Identifiable, Sendable 
     var club: SwingClub
     var licenseName: String
     var attribution: String
-    var sourceURL: URL
-    var licenseURL: URL
+    var sourceURL: URL?
+    var licenseURL: URL?
+    var rightsBasis: ReferenceRightsBasis
+    var verificationRecordID: String?
     var allowedUse: ReferenceAllowedUse
     var rightsStatus: ReferenceRightsStatus
 
@@ -163,10 +279,66 @@ struct BundledReferenceManifestEntry: Codable, Hashable, Identifiable, Sendable 
             attribution: attribution,
             sourceURL: sourceURL,
             licenseURL: licenseURL,
+            rightsBasis: rightsBasis,
+            verificationRecordID: verificationRecordID,
             allowedUse: allowedUse,
             rightsStatus: rightsStatus,
             analysisJSON: ""
         )
+    }
+}
+
+extension BundledReferenceManifestEntry {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case displayName
+        case golferName
+        case sourceKind
+        case videoRelativePath
+        case analysisRelativePath
+        case cameraView
+        case handedness
+        case club
+        case licenseName
+        case attribution
+        case sourceURL
+        case licenseURL
+        case rightsBasis
+        case verificationRecordID
+        case allowedUse
+        case rightsStatus
+    }
+
+    /// A legacy catalog without an explicit rights basis is never inferred to
+    /// have distribution rights. Catalog validation will reject `.unknown`.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        displayName = try values.decode(String.self, forKey: .displayName)
+        golferName = try values.decodeIfPresent(String.self, forKey: .golferName)
+        sourceKind = try values.decode(
+            ReferenceSwingDescriptor.SourceKind.self,
+            forKey: .sourceKind
+        )
+        videoRelativePath = try values.decode(String.self, forKey: .videoRelativePath)
+        analysisRelativePath = try values.decode(String.self, forKey: .analysisRelativePath)
+        cameraView = try values.decode(SwingCameraView.self, forKey: .cameraView)
+        handedness = try values.decode(GolferHandedness.self, forKey: .handedness)
+        club = try values.decode(SwingClub.self, forKey: .club)
+        licenseName = try values.decode(String.self, forKey: .licenseName)
+        attribution = try values.decode(String.self, forKey: .attribution)
+        sourceURL = try values.decodeIfPresent(URL.self, forKey: .sourceURL)
+        licenseURL = try values.decodeIfPresent(URL.self, forKey: .licenseURL)
+        rightsBasis = try values.decodeIfPresent(
+            ReferenceRightsBasis.self,
+            forKey: .rightsBasis
+        ) ?? .unknown
+        verificationRecordID = try values.decodeIfPresent(
+            String.self,
+            forKey: .verificationRecordID
+        )
+        allowedUse = try values.decode(ReferenceAllowedUse.self, forKey: .allowedUse)
+        rightsStatus = try values.decode(ReferenceRightsStatus.self, forKey: .rightsStatus)
     }
 }
 
@@ -403,6 +575,8 @@ enum ReferenceSwingDescriptorFactory {
                 attribution: "Your saved swing",
                 sourceURL: nil,
                 licenseURL: nil,
+                rightsBasis: .unknown,
+                verificationRecordID: nil,
                 allowedUse: .privateAnalysisOnly,
                 rightsStatus: .unverified,
                 analysisJSON: analysisJSON
@@ -425,6 +599,8 @@ enum ReferenceSwingDescriptorFactory {
                 attribution: nonblank(session.referenceAttribution),
                 sourceURL: validWebURL(session.referenceSourceURL),
                 licenseURL: validWebURL(session.referenceLicenseURL),
+                rightsBasis: .unknown,
+                verificationRecordID: nil,
                 allowedUse: strictEnum(
                     session.referenceAllowedUse,
                     as: ReferenceAllowedUse.self

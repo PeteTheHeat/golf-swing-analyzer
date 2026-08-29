@@ -126,7 +126,7 @@ struct ReviewWithComparisonView: View {
                                     bundledCandidateRow(entry)
                                 }
                             } header: {
-                                Text("Licensed references")
+                                Text("Rights-cleared references")
                             } footer: {
                                 Text("Catalog entries appear after distribution rights and source metadata validate. The video and analysis are checked before comparison opens.")
                             }
@@ -137,7 +137,7 @@ struct ReviewWithComparisonView: View {
                                 ForEach(verifiedSessionCandidates) { candidate in
                                     candidateRow(
                                         candidate,
-                                        sourceLabel: "Verified license"
+                                        sourceLabel: "Verified rights"
                                     )
                                 }
                             }
