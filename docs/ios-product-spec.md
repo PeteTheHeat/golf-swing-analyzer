@@ -80,8 +80,10 @@ Only footage with explicit distribution rights can ship in the application.
 The current interaction supports local saved-swing comparison and private
 user-imported references. Private imports are stored locally, labeled
 unverified, and never treated as distribution-ready. Future distributed
-reference media must have a source, license, attribution, allowed-use record,
-and an internally verified rights status.
+reference media must have a source, attribution, allowed-use record, an
+internally verified rights status, and either a public license, a linked
+public-domain statement, or an opaque record for a privately stored signed
+release.
 
 ## Privacy
 
@@ -94,7 +96,7 @@ and an internally verified rights status.
 
 ## Acceptance status
 
-- Complete: 104 native tests cover trim invariants, automatic multi-swing
+- Complete: 107 native tests cover trim invariants, automatic multi-swing
   discovery, noise and duplicate rejection, geometry, event ordering, scoring,
   confidence, critique thresholds, rights provenance, persistence, and media
   ownership.

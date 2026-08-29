@@ -102,6 +102,33 @@ final class ReferenceMatcherTests: XCTestCase {
         XCTAssertFalse(descriptor.isDistributionReady)
     }
 
+    func testPublicDomainRequiresSourceAndRightsStatementURLs() {
+        var descriptor = publicDomainDescriptor()
+
+        XCTAssertEqual(descriptor.rightsBasis.displayName, "Public domain")
+        XCTAssertTrue(descriptor.isDistributionReady)
+
+        descriptor.sourceURL = nil
+        XCTAssertFalse(descriptor.isDistributionReady)
+
+        descriptor.sourceURL = URL(fileURLWithPath: "/private/source")
+        XCTAssertFalse(descriptor.isDistributionReady)
+
+        descriptor.sourceURL = URL(string: "https://example.com/source")
+        descriptor.licenseURL = nil
+        XCTAssertFalse(descriptor.isDistributionReady)
+
+        descriptor.licenseURL = URL(fileURLWithPath: "/private/rights.html")
+        XCTAssertFalse(descriptor.isDistributionReady)
+
+        descriptor.licenseURL = URL(string: "https://example.com/public-domain")
+        descriptor.verificationRecordID = "RC-REF-2026-0001"
+        XCTAssertFalse(descriptor.isDistributionReady)
+
+        descriptor.verificationRecordID = nil
+        XCTAssertTrue(descriptor.isDistributionReady)
+    }
+
     func testSignedReleaseRequiresOpaqueRecordButNoPublicLicenseURL() {
         var descriptor = signedReleaseDescriptor()
 
@@ -141,8 +168,12 @@ final class ReferenceMatcherTests: XCTestCase {
         XCTAssertTrue(descriptor.isDistributionReady)
     }
 
-    func testBothRightsBasesRequireAllSharedDistributionProof() {
-        for baseline in [publicLicenseDescriptor(), signedReleaseDescriptor()] {
+    func testAllRightsBasesRequireSharedDistributionProof() {
+        for baseline in [
+            publicDomainDescriptor(),
+            publicLicenseDescriptor(),
+            signedReleaseDescriptor(),
+        ] {
             var descriptor = baseline
             descriptor.allowedUse = .privateAnalysisOnly
             XCTAssertFalse(descriptor.isDistributionReady)
@@ -289,6 +320,24 @@ final class ReferenceMatcherTests: XCTestCase {
         XCTAssertTrue(entries[0].descriptor.isDistributionReady)
     }
 
+    func testBundledCatalogAcceptsVerifiedPublicDomainStatement() throws {
+        let data = try JSONEncoder().encode(BundledReferenceManifest(
+            schemaVersion: 1,
+            references: [validPublicDomainReference()]
+        ))
+
+        let entries = try BundledReferenceCatalog.validatedEntries(from: data)
+
+        XCTAssertEqual(entries.map(\.id), ["public-domain-iron"])
+        XCTAssertEqual(entries[0].rightsBasis, .publicDomain)
+        XCTAssertNil(entries[0].verificationRecordID)
+        XCTAssertEqual(
+            entries[0].licenseURL?.absoluteString,
+            "https://creativecommons.org/publicdomain/mark/1.0/"
+        )
+        XCTAssertTrue(entries[0].descriptor.isDistributionReady)
+    }
+
     func testBundledCatalogRejectsLegacyManifestWithoutExplicitRightsBasis() throws {
         let manifest = BundledReferenceManifest(
             schemaVersion: 1,
@@ -324,6 +373,36 @@ final class ReferenceMatcherTests: XCTestCase {
                 $0 as? BundledReferenceCatalogError,
                 .invalidRights("licensed-driver")
             )
+        }
+    }
+
+    func testBundledPublicDomainRejectsIncompleteOrPrivateProof() throws {
+        var invalidEntries: [BundledReferenceManifestEntry] = []
+
+        var missingSource = validPublicDomainReference()
+        missingSource.sourceURL = nil
+        invalidEntries.append(missingSource)
+
+        var missingRightsStatement = validPublicDomainReference()
+        missingRightsStatement.licenseURL = nil
+        invalidEntries.append(missingRightsStatement)
+
+        var privateRecord = validPublicDomainReference()
+        privateRecord.verificationRecordID = "RC-REF-2026-0001"
+        invalidEntries.append(privateRecord)
+
+        for entry in invalidEntries {
+            let data = try JSONEncoder().encode(BundledReferenceManifest(
+                schemaVersion: 1,
+                references: [entry]
+            ))
+
+            XCTAssertThrowsError(try BundledReferenceCatalog.validatedEntries(from: data)) {
+                XCTAssertEqual(
+                    $0 as? BundledReferenceCatalogError,
+                    .invalidRights("public-domain-iron")
+                )
+            }
         }
     }
 
@@ -550,6 +629,30 @@ final class ReferenceMatcherTests: XCTestCase {
         )
     }
 
+    private func validPublicDomainReference() -> BundledReferenceManifestEntry {
+        BundledReferenceManifestEntry(
+            id: "public-domain-iron",
+            displayName: "Historical professional iron",
+            golferName: "Reference golfer",
+            sourceKind: .licensedProfessional,
+            videoRelativePath: "References/public-domain-iron.mov",
+            analysisRelativePath: "References/public-domain-iron.json",
+            cameraView: .faceOn,
+            handedness: .right,
+            club: .midIron,
+            licenseName: "Public Domain Mark 1.0",
+            attribution: "Example public archive",
+            sourceURL: URL(string: "https://example.com/source")!,
+            licenseURL: URL(
+                string: "https://creativecommons.org/publicdomain/mark/1.0/"
+            )!,
+            rightsBasis: .publicDomain,
+            verificationRecordID: nil,
+            allowedUse: .distributionAllowed,
+            rightsStatus: .verified
+        )
+    }
+
     private func signedReleaseDescriptor() -> ReferenceSwingDescriptor {
         ReferenceSwingDescriptor(
             id: "released-reference",
@@ -587,6 +690,30 @@ final class ReferenceMatcherTests: XCTestCase {
             sourceURL: URL(string: "https://example.com/source"),
             licenseURL: URL(string: "https://example.com/license"),
             rightsBasis: .publicLicense,
+            verificationRecordID: nil,
+            allowedUse: .distributionAllowed,
+            rightsStatus: .verified,
+            analysisJSON: "{}"
+        )
+    }
+
+    private func publicDomainDescriptor() -> ReferenceSwingDescriptor {
+        ReferenceSwingDescriptor(
+            id: "public-domain-reference",
+            displayName: "Historical professional iron",
+            golferName: "Reference golfer",
+            sourceKind: .licensedProfessional,
+            videoRelativePath: "public-domain.mov",
+            cameraView: .faceOn,
+            handedness: .right,
+            club: .midIron,
+            licenseName: "Public Domain Mark 1.0",
+            attribution: "Example public archive",
+            sourceURL: URL(string: "https://example.com/source"),
+            licenseURL: URL(
+                string: "https://creativecommons.org/publicdomain/mark/1.0/"
+            ),
+            rightsBasis: .publicDomain,
             verificationRecordID: nil,
             allowedUse: .distributionAllowed,
             rightsStatus: .verified,

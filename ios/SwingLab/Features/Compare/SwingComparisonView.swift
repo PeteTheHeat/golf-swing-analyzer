@@ -412,9 +412,7 @@ struct SwingComparisonView: View {
                     }
                     if let licenseName = reference.descriptor.licenseName {
                         LabeledContent(
-                            reference.descriptor.rightsBasis == .signedRelease
-                                ? "Release"
-                                : "License",
+                            rightsDocumentLabel,
                             value: licenseName
                         )
                     }
@@ -428,6 +426,13 @@ struct SwingComparisonView: View {
                     if reference.descriptor.rightsBasis == .publicLicense,
                        let licenseURL = reference.descriptor.licenseURL {
                         Link("Open license", destination: licenseURL)
+                    }
+                    if reference.descriptor.rightsBasis == .publicDomain,
+                       let rightsStatementURL = reference.descriptor.licenseURL {
+                        Link(
+                            "Open public-domain statement",
+                            destination: rightsStatementURL
+                        )
                     }
                 } header: {
                     Text("Rights")
@@ -449,6 +454,19 @@ struct SwingComparisonView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var rightsDocumentLabel: String {
+        switch reference.descriptor.rightsBasis {
+        case .publicDomain:
+            "Rights statement"
+        case .publicLicense:
+            "License"
+        case .signedRelease:
+            "Release"
+        case .unknown:
+            "Rights"
+        }
     }
 
     private var referencePaneTitle: String {

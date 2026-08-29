@@ -20,14 +20,18 @@ enum ReferenceRightsStatus: String, Codable, CaseIterable, Sendable {
 
 /// Identifies the evidence used to approve bundled reference footage. A signed
 /// release stays outside the app and repository; only its opaque verification
-/// record ID belongs in the catalog.
+/// record ID belongs in the catalog. Public-domain footage must link to both
+/// its source page and the public rights statement that applies to it.
 enum ReferenceRightsBasis: String, Codable, CaseIterable, Sendable {
+    case publicDomain
     case publicLicense
     case signedRelease
     case unknown
 
     var displayName: String {
         switch self {
+        case .publicDomain:
+            "Public domain"
         case .publicLicense:
             "Public license"
         case .signedRelease:
@@ -91,6 +95,8 @@ struct ReferenceSwingDescriptor: Codable, Hashable, Identifiable, Sendable {
     var licenseName: String?
     var attribution: String?
     var sourceURL: URL?
+    /// For `.publicDomain`, this legacy manifest field stores the public rights
+    /// statement URL rather than a license URL.
     var licenseURL: URL?
     var rightsBasis: ReferenceRightsBasis
     /// An opaque, non-sensitive lookup ID such as `RC-REF-2026-0001`. The
@@ -126,6 +132,11 @@ struct ReferenceSwingDescriptor: Codable, Hashable, Identifiable, Sendable {
         }
 
         switch rightsBasis {
+        case .publicDomain:
+            return verificationRecordID == nil
+                && Self.isValidWebURL(sourceURL)
+                && Self.isValidWebURL(licenseURL)
+
         case .publicLicense:
             return verificationRecordID == nil
                 && Self.isValidWebURL(sourceURL)
@@ -259,6 +270,8 @@ struct BundledReferenceManifestEntry: Codable, Hashable, Identifiable, Sendable 
     var licenseName: String
     var attribution: String
     var sourceURL: URL?
+    /// For `.publicDomain`, this legacy manifest field stores the public rights
+    /// statement URL rather than a license URL.
     var licenseURL: URL?
     var rightsBasis: ReferenceRightsBasis
     var verificationRecordID: String?
