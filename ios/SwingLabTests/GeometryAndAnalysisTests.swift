@@ -648,6 +648,134 @@ final class GeometryAndAnalysisTests: XCTestCase {
         )
     }
 
+    func testReferenceAlignmentMovesOnlyReferenceAtItsNativeFrameRate() {
+        let automatic = ComparisonTimeAlignment.timestamps(
+            userBase: 10,
+            referenceBase: 20,
+            userFrameDuration: 1.0 / 30,
+            referenceFrameDuration: 1.0 / 60,
+            sharedOffset: 0,
+            referenceOffset: 0,
+            userRangeStart: 9,
+            userRangeEnd: 11,
+            referenceRangeStart: 19,
+            referenceRangeEnd: 21
+        )
+        let nudged = ComparisonTimeAlignment.timestamps(
+            userBase: 10,
+            referenceBase: 20,
+            userFrameDuration: 1.0 / 30,
+            referenceFrameDuration: 1.0 / 60,
+            sharedOffset: 0,
+            referenceOffset: 2,
+            userRangeStart: 9,
+            userRangeEnd: 11,
+            referenceRangeStart: 19,
+            referenceRangeEnd: 21
+        )
+
+        XCTAssertEqual(nudged.user, automatic.user, accuracy: 0.000_001)
+        XCTAssertEqual(
+            nudged.reference - automatic.reference,
+            2.0 / 60,
+            accuracy: 0.000_001
+        )
+    }
+
+    func testReferenceAlignmentClampsOffsetAndSelectionBounds() {
+        XCTAssertEqual(ReferenceAlignmentStepper.clampedOffset(-100), -12)
+        XCTAssertEqual(ReferenceAlignmentStepper.clampedOffset(100), 12)
+        XCTAssertEqual(
+            ReferenceAlignmentStepper.timestamp(
+                sharedReferenceTime: 1.95,
+                frameDuration: 0.1,
+                offset: 1,
+                rangeStart: 1,
+                rangeEnd: 2
+            ),
+            2,
+            accuracy: 0.000_001
+        )
+        XCTAssertTrue(
+            ReferenceAlignmentStepper.canStep(
+                sharedReferenceTime: 1.9,
+                frameDuration: 0.1,
+                offset: 0,
+                direction: 1,
+                rangeStart: 1,
+                rangeEnd: 2
+            )
+        )
+        XCTAssertFalse(
+            ReferenceAlignmentStepper.canStep(
+                sharedReferenceTime: 2,
+                frameDuration: 0.1,
+                offset: 0,
+                direction: 1,
+                rangeStart: 1,
+                rangeEnd: 2
+            )
+        )
+        XCTAssertFalse(
+            ReferenceAlignmentStepper.canStep(
+                sharedReferenceTime: 1.5,
+                frameDuration: 0.1,
+                offset: 12,
+                direction: 1,
+                rangeStart: 1,
+                rangeEnd: 3
+            )
+        )
+    }
+
+    func testReferenceAlignmentResetKeepsSharedFrameAndRestoresAutomaticMatch() {
+        let nudged = ComparisonTimeAlignment.timestamps(
+            userBase: 10,
+            referenceBase: 20,
+            userFrameDuration: 1.0 / 30,
+            referenceFrameDuration: 1.0 / 60,
+            sharedOffset: 3,
+            referenceOffset: -2,
+            userRangeStart: 9,
+            userRangeEnd: 11,
+            referenceRangeStart: 19,
+            referenceRangeEnd: 21
+        )
+        let reset = ComparisonTimeAlignment.timestamps(
+            userBase: 10,
+            referenceBase: 20,
+            userFrameDuration: 1.0 / 30,
+            referenceFrameDuration: 1.0 / 60,
+            sharedOffset: 3,
+            referenceOffset: 0,
+            userRangeStart: 9,
+            userRangeEnd: 11,
+            referenceRangeStart: 19,
+            referenceRangeEnd: 21
+        )
+
+        XCTAssertEqual(reset.user, nudged.user, accuracy: 0.000_001)
+        XCTAssertEqual(reset.reference, 20.05, accuracy: 0.000_001)
+    }
+
+    func testReferenceAlignmentLabelsVisualAndSpokenOffsets() {
+        XCTAssertEqual(ReferenceAlignmentStepper.label(for: 0), "AUTO MATCH")
+        XCTAssertEqual(ReferenceAlignmentStepper.label(for: -1), "1 FRAME EARLIER")
+        XCTAssertEqual(ReferenceAlignmentStepper.label(for: 99), "12 FRAMES LATER")
+        XCTAssertEqual(
+            ReferenceAlignmentStepper.accessibilityValue(for: 0),
+            "Automatic reference match"
+        )
+        XCTAssertEqual(
+            ReferenceAlignmentStepper.accessibilityValue(for: -1),
+            "Reference 1 frame earlier than the automatic match"
+        )
+        XCTAssertEqual(
+            ReferenceAlignmentStepper.accessibilityValue(for: 2),
+            "Reference 2 frames later than the automatic match"
+        )
+    }
+
     func testProgressActorCooperativelyCancels() async {
         let progress = SwingAnalysisProgress()
         await progress.cancel()

@@ -28,7 +28,8 @@ assets, drills, or professional-golfer footage.
 10. The comparison screen aligns that phase with one of the golfer's own saved
    swings or a locally imported private reference. Private imports
    remain visibly unverified. The same boundary can accept verified catalog
-   footage later.
+   footage later. The golfer can nudge only the reference earlier or later by
+   its native frame interval when the automatic phase match needs correction.
 11. The completed analysis remains in the local library.
 
 ## Required screens
@@ -40,7 +41,8 @@ assets, drills, or professional-golfer footage.
 - Processing: cancellable progress for decode, pose, events, and coaching.
 - Review: video, pose overlay, event scrubber, score, findings, metrics.
 - Finding cards: evidence frame, measurement, hypothesis, and confidence.
-- Compare: vertically stacked, phase-synchronized user and reference frames.
+- Compare: vertically stacked, phase-synchronized user and reference frames,
+  with an independent reference-frame alignment control.
 - Settings: privacy explanation, methodology, and version. Per-swing deletion
   is available in the Library.
 
@@ -70,7 +72,9 @@ ordinary phone video.
 
 Reference matching uses view, handedness, club, and normalized swing phase.
 The app preserves the original user and reference frames. It does not warp a
-golfer into a fake view.
+golfer into a fake view. Shared frame stepping keeps the matched pair together;
+independent reference alignment corrects the match without moving the golfer's
+evidence frame.
 
 Only footage with explicit distribution rights can ship in the application.
 The current interaction supports local saved-swing comparison and private
@@ -90,7 +94,7 @@ and an internally verified rights status.
 
 ## Acceptance status
 
-- Complete: 100 native tests cover trim invariants, automatic multi-swing
+- Complete: 104 native tests cover trim invariants, automatic multi-swing
   discovery, noise and duplicate rejection, geometry, event ordering, scoring,
   confidence, critique thresholds, rights provenance, persistence, and media
   ownership.

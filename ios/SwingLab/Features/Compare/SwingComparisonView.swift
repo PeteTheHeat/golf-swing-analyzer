@@ -12,6 +12,7 @@ struct SwingComparisonView: View {
     @StateObject private var referencePlayer: VideoPlayerController
     @State private var findingIndex: Int
     @State private var frameOffset = 0
+    @State private var referenceFrameOffset = 0
     @State private var showsOverlays = true
     @State private var showsReferenceRights = false
 
@@ -91,9 +92,11 @@ struct SwingComparisonView: View {
         }
         .onChange(of: findingIndex) { _, _ in
             frameOffset = 0
+            referenceFrameOffset = 0
             seekToFinding()
         }
         .onChange(of: frameOffset) { _, _ in seekToFinding() }
+        .onChange(of: referenceFrameOffset) { _, _ in seekToFinding() }
         .sheet(isPresented: $showsReferenceRights) {
             referenceRightsSheet
                 .presentationDetents([.medium, .large])
@@ -309,6 +312,79 @@ struct SwingComparisonView: View {
                 )
                 .accessibilityHint("Moves both videos one frame later")
             }
+
+            HStack(spacing: SwingTheme.Spacing.medium) {
+                Button {
+                    referenceFrameOffset = ReferenceAlignmentStepper.clampedOffset(
+                        referenceFrameOffset - 1
+                    )
+                } label: {
+                    Image(systemName: "backward.frame")
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(!canMoveReferenceEarlier)
+                .accessibilityLabel("Move reference one frame earlier")
+                .accessibilityValue(
+                    ReferenceAlignmentStepper.accessibilityValue(
+                        for: referenceFrameOffset
+                    )
+                )
+                .accessibilityHint(
+                    "Moves only the reference video. Your evidence frame stays fixed."
+                )
+
+                Button {
+                    referenceFrameOffset = 0
+                } label: {
+                    VStack(spacing: 1) {
+                        Text("REFERENCE ALIGNMENT")
+                            .font(SwingTheme.Typography.caption)
+                        Text(
+                            ReferenceAlignmentStepper.label(
+                                for: referenceFrameOffset
+                            )
+                        )
+                        .font(SwingTheme.Typography.eyebrow.monospacedDigit())
+                        .tracking(0.8)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .accessibilityLabel(
+                    referenceFrameOffset == 0
+                        ? "Automatic reference alignment"
+                        : "Reset reference alignment"
+                )
+                .accessibilityValue(
+                    ReferenceAlignmentStepper.accessibilityValue(
+                        for: referenceFrameOffset
+                    )
+                )
+                .accessibilityHint(
+                    referenceFrameOffset == 0
+                        ? "The reference is at the automatic phase match"
+                        : "Returns only the reference video to the automatic phase match"
+                )
+
+                Button {
+                    referenceFrameOffset = ReferenceAlignmentStepper.clampedOffset(
+                        referenceFrameOffset + 1
+                    )
+                } label: {
+                    Image(systemName: "forward.frame")
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(!canMoveReferenceLater)
+                .accessibilityLabel("Move reference one frame later")
+                .accessibilityValue(
+                    ReferenceAlignmentStepper.accessibilityValue(
+                        for: referenceFrameOffset
+                    )
+                )
+                .accessibilityHint(
+                    "Moves only the reference video. Your evidence frame stays fixed."
+                )
+            }
         }
         .foregroundStyle(SwingTheme.cream)
         .padding(.horizontal, SwingTheme.Spacing.screen)
@@ -391,7 +467,10 @@ struct SwingComparisonView: View {
     }
 
     private func seekToFinding() {
-        guard let times = comparisonTimes(for: frameOffset) else { return }
+        guard let times = comparisonTimes(
+            sharedOffset: frameOffset,
+            referenceOffset: referenceFrameOffset
+        ) else { return }
         userPlayer.pause()
         referencePlayer.pause()
         userPlayer.seek(to: times.user)
@@ -407,25 +486,49 @@ struct SwingComparisonView: View {
     }
 
     private func canStep(by direction: Int) -> Bool {
-        guard let anchors = comparisonAnchors else { return false }
-        let userStart = userAnalysis.poseTrack.selectedRangeStartSeconds
-        let referenceStart = reference.analysis.poseTrack.selectedRangeStartSeconds
-        return ComparisonFrameStepper.canStep(
-            base: anchors.user,
-            frameDuration: userVideo.frameDurationSeconds,
-            offset: frameOffset,
-            direction: direction,
-            rangeStart: userStart,
-            rangeEnd: userStart + userAnalysis.poseTrack.selectedRangeDurationSeconds
-        ) && ComparisonFrameStepper.canStep(
-            base: anchors.reference,
-            frameDuration: reference.video.frameDurationSeconds,
-            offset: frameOffset,
-            direction: direction,
-            rangeStart: referenceStart,
-            rangeEnd: referenceStart
-                + reference.analysis.poseTrack.selectedRangeDurationSeconds
+        guard direction != 0 else { return false }
+        let nextOffset = ComparisonFrameStepper.clampedOffset(
+            frameOffset + (direction < 0 ? -1 : 1)
         )
+        guard nextOffset != frameOffset,
+              let current = comparisonTimes(
+                sharedOffset: frameOffset,
+                referenceOffset: referenceFrameOffset
+              ),
+              let next = comparisonTimes(
+                sharedOffset: nextOffset,
+                referenceOffset: referenceFrameOffset
+              ) else {
+            return false
+        }
+        return next.user != current.user && next.reference != current.reference
+    }
+
+    private var canMoveReferenceEarlier: Bool {
+        canMoveReference(by: -1)
+    }
+
+    private var canMoveReferenceLater: Bool {
+        canMoveReference(by: 1)
+    }
+
+    private func canMoveReference(by direction: Int) -> Bool {
+        guard direction != 0 else { return false }
+        let nextOffset = ReferenceAlignmentStepper.clampedOffset(
+            referenceFrameOffset + (direction < 0 ? -1 : 1)
+        )
+        guard nextOffset != referenceFrameOffset,
+              let current = comparisonTimes(
+                sharedOffset: frameOffset,
+                referenceOffset: referenceFrameOffset
+              ),
+              let next = comparisonTimes(
+                sharedOffset: frameOffset,
+                referenceOffset: nextOffset
+              ) else {
+            return false
+        }
+        return next.reference != current.reference
     }
 
     private var comparisonAnchors: (user: Double, reference: Double)? {
@@ -447,27 +550,25 @@ struct SwingComparisonView: View {
     }
 
     private func comparisonTimes(
-        for offset: Int
-    ) -> (user: Double, reference: Double)? {
+        sharedOffset: Int,
+        referenceOffset: Int
+    ) -> ComparisonTimestamps? {
         guard let anchors = comparisonAnchors else { return nil }
         let userStart = userAnalysis.poseTrack.selectedRangeStartSeconds
         let referenceStart = reference.analysis.poseTrack.selectedRangeStartSeconds
-        return (
-            ComparisonFrameStepper.timestamp(
-                base: anchors.user,
-                frameDuration: userVideo.frameDurationSeconds,
-                offset: offset,
-                rangeStart: userStart,
-                rangeEnd: userStart + userAnalysis.poseTrack.selectedRangeDurationSeconds
-            ),
-            ComparisonFrameStepper.timestamp(
-                base: anchors.reference,
-                frameDuration: reference.video.frameDurationSeconds,
-                offset: offset,
-                rangeStart: referenceStart,
-                rangeEnd: referenceStart
-                    + reference.analysis.poseTrack.selectedRangeDurationSeconds
-            )
+        return ComparisonTimeAlignment.timestamps(
+            userBase: anchors.user,
+            referenceBase: anchors.reference,
+            userFrameDuration: userVideo.frameDurationSeconds,
+            referenceFrameDuration: reference.video.frameDurationSeconds,
+            sharedOffset: sharedOffset,
+            referenceOffset: referenceOffset,
+            userRangeStart: userStart,
+            userRangeEnd: userStart
+                + userAnalysis.poseTrack.selectedRangeDurationSeconds,
+            referenceRangeStart: referenceStart,
+            referenceRangeEnd: referenceStart
+                + reference.analysis.poseTrack.selectedRangeDurationSeconds
         )
     }
 
@@ -685,5 +786,123 @@ enum ComparisonFrameStepper {
         return safeOffset < 0
             ? "\(count) \(unit) before the matched frame"
             : "\(count) \(unit) after the matched frame"
+    }
+}
+
+struct ComparisonTimestamps: Equatable {
+    let user: Double
+    let reference: Double
+}
+
+enum ComparisonTimeAlignment {
+    static func timestamps(
+        userBase: Double,
+        referenceBase: Double,
+        userFrameDuration: Double,
+        referenceFrameDuration: Double,
+        sharedOffset: Int,
+        referenceOffset: Int,
+        userRangeStart: Double,
+        userRangeEnd: Double,
+        referenceRangeStart: Double,
+        referenceRangeEnd: Double
+    ) -> ComparisonTimestamps {
+        let userTime = ComparisonFrameStepper.timestamp(
+            base: userBase,
+            frameDuration: userFrameDuration,
+            offset: sharedOffset,
+            rangeStart: userRangeStart,
+            rangeEnd: userRangeEnd
+        )
+        let sharedReferenceTime = ComparisonFrameStepper.timestamp(
+            base: referenceBase,
+            frameDuration: referenceFrameDuration,
+            offset: sharedOffset,
+            rangeStart: referenceRangeStart,
+            rangeEnd: referenceRangeEnd
+        )
+        let referenceTime = ReferenceAlignmentStepper.timestamp(
+            sharedReferenceTime: sharedReferenceTime,
+            frameDuration: referenceFrameDuration,
+            offset: referenceOffset,
+            rangeStart: referenceRangeStart,
+            rangeEnd: referenceRangeEnd
+        )
+        return ComparisonTimestamps(user: userTime, reference: referenceTime)
+    }
+}
+
+enum ReferenceAlignmentStepper {
+    private static let maximumOffset = 12
+
+    static func clampedOffset(_ offset: Int) -> Int {
+        min(maximumOffset, max(-maximumOffset, offset))
+    }
+
+    static func timestamp(
+        sharedReferenceTime: Double,
+        frameDuration: Double,
+        offset: Int,
+        rangeStart: Double,
+        rangeEnd: Double
+    ) -> Double {
+        ComparisonFrameStepper.timestamp(
+            base: sharedReferenceTime,
+            frameDuration: frameDuration,
+            offset: clampedOffset(offset),
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd
+        )
+    }
+
+    static func canStep(
+        sharedReferenceTime: Double,
+        frameDuration: Double,
+        offset: Int,
+        direction: Int,
+        rangeStart: Double,
+        rangeEnd: Double
+    ) -> Bool {
+        guard direction != 0 else { return false }
+        let currentOffset = clampedOffset(offset)
+        let nextOffset = clampedOffset(
+            currentOffset + (direction < 0 ? -1 : 1)
+        )
+        guard nextOffset != currentOffset else { return false }
+        let currentTime = timestamp(
+            sharedReferenceTime: sharedReferenceTime,
+            frameDuration: frameDuration,
+            offset: currentOffset,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd
+        )
+        let nextTime = timestamp(
+            sharedReferenceTime: sharedReferenceTime,
+            frameDuration: frameDuration,
+            offset: nextOffset,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd
+        )
+        return nextTime != currentTime
+    }
+
+    static func label(for offset: Int) -> String {
+        let safeOffset = clampedOffset(offset)
+        guard safeOffset != 0 else { return "AUTO MATCH" }
+        let count = abs(safeOffset)
+        let unit = count == 1 ? "FRAME" : "FRAMES"
+        return safeOffset < 0
+            ? "\(count) \(unit) EARLIER"
+            : "\(count) \(unit) LATER"
+    }
+
+    static func accessibilityValue(for offset: Int) -> String {
+        let safeOffset = clampedOffset(offset)
+        guard safeOffset != 0 else { return "Automatic reference match" }
+        let count = abs(safeOffset)
+        let unit = count == 1 ? "frame" : "frames"
+        return safeOffset < 0
+            ? "Reference \(count) \(unit) earlier than the automatic match"
+            : "Reference \(count) \(unit) later than the automatic match"
     }
 }

@@ -32,6 +32,8 @@ an original, local-first product for iOS 17 and newer. The current app can:
 - delete a saved swing and its uniquely owned local media;
 - save an imported clip as a clearly labeled private, unverified reference;
 - phase-match a swing against another saved swing or private reference;
+- nudge the reference earlier or later by its native frame interval without
+  moving the golfer's evidence frame;
 - keep private imports separate from a fail-closed bundled-reference catalog,
   whose verified entries require allowed-use, license, attribution, source,
   media, and analysis metadata.
@@ -174,7 +176,7 @@ no network calls during analysis.
 1. Upload the first Replay Caddie internal TestFlight build.
 2. Validate automatic multi-swing discovery against a larger range of real
    phone videos.
-3. Add manual phase correction and an exported annotated slow-motion clip.
+3. Add an exported annotated slow-motion clip.
 4. Add optional, confidence-gated clubhead point tracking.
 5. Populate the verified bundled-reference catalog with rights-cleared
    instructor or professional footage.

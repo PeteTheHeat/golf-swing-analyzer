@@ -147,7 +147,10 @@ struct AppAndPersistenceTests {
         #expect(session.referenceRightsStatus == ReferenceRightsStatus.unverified.rawValue)
         #expect(session.referenceLicenseName == nil)
         #expect(session.referenceSourceURL == nil)
-        #expect(ReferenceSwingDescriptorFactory.make(from: session)?.isDistributionReady == false)
+        let descriptor = ReferenceSwingDescriptorFactory.make(from: session)
+        #expect(descriptor?.rightsBasis == .unknown)
+        #expect(descriptor?.verificationRecordID == nil)
+        #expect(descriptor?.isDistributionReady == false)
     }
 
     @Test("Repository rejects an unnamed private reference")
