@@ -16,20 +16,26 @@ assets, drills, or professional-golfer footage.
 1. The golfer opens a local swing library.
 2. The golfer selects a video from the system Photos picker.
 3. SwingLab copies the selected file into its private application storage.
-4. The golfer trims the video to one swing with a thumbnail rail and in/out
-   handles.
-5. The golfer selects camera view, handedness, and club.
-6. SwingLab analyzes only the selected range and shows progress.
-7. The review screen plays the swing with a body overlay and event markers.
-8. Selecting a finding seeks to and freezes its evidence frame.
-9. The comparison screen aligns that phase with one of the golfer's own saved
-   "Best Swing" clips. The same boundary can accept licensed footage later.
-10. The completed analysis remains in the local library.
+4. SwingLab scans the full imported source on-device and offers each
+   complete detected swing as a nondestructive clip range. The golfer can
+   cancel, retry, or use manual trim at any time.
+5. The golfer chooses a detected clip and refines its frame-snapped in/out
+   points, or trims one swing manually.
+6. The golfer selects camera view, handedness, and club.
+7. SwingLab analyzes only the selected range and shows progress.
+8. The review screen plays the swing with a body overlay and event markers.
+9. Selecting a finding seeks to and freezes its evidence frame.
+10. The comparison screen aligns that phase with one of the golfer's own saved
+   "Best Swing" clips or a locally imported private reference. Private imports
+   remain visibly unverified. The same boundary can accept verified catalog
+   footage later.
+11. The completed analysis remains in the local library.
 
 ## Required screens
 
 - Library: previous swings, status, import action, and confirmed deletion.
-- Import: Photos picker progress and actionable errors.
+- Import: Photos picker progress, automatic multi-swing discovery, detected
+  clip selection, cancellation, manual fallback, and actionable errors.
 - Trim: video preview, filmstrip, playhead, draggable range, context fields.
 - Processing: cancellable progress for decode, pose, events, and coaching.
 - Review: video, pose overlay, event scrubber, score, findings, metrics.
@@ -67,9 +73,11 @@ The app preserves the original user and reference frames. It does not warp a
 golfer into a fake view.
 
 Only footage with explicit distribution rights can ship in the application.
-Until licensed professional footage is available, the current interaction uses
-the local Best Swing feature. Future distributed reference media must have a
-source, license, attribution, and allowed-use record.
+The current interaction supports the local Best Swing feature and private
+user-imported references. Private imports are stored locally, labeled
+unverified, and never treated as distribution-ready. Future distributed
+reference media must have a source, license, attribution, allowed-use record,
+and an internally verified rights status.
 
 ## Privacy
 
@@ -82,15 +90,19 @@ source, license, attribution, and allowed-use record.
 
 ## Acceptance status
 
-- Complete: 32 native unit tests cover trim invariants, geometry, event
-  ordering, scoring, confidence, critique thresholds, persistence, and media
-  ownership.
+- Complete: 63 native tests cover trim invariants, automatic multi-swing
+  discovery, noise and duplicate rejection, geometry, event ordering, scoring,
+  confidence, critique thresholds, persistence, and media ownership.
 - Complete: the real Photos picker, import, trim, clip-position, and analysis
   entry flow were visually checked in the simulator with the supplied videos.
-- Complete: unsigned simulator and physical-device Release builds pass.
+- Complete: simulator and generic-device Release builds pass, and a signed
+  development archive validates against Apple's certificate chain.
 - Pending: run Vision pose extraction with a supplied video on a physical
   iPhone; the installed simulator runtime lacks its body-pose model weights.
 - Pending: visually verify the complete saved-review and comparison journey on
   a physical iPhone.
-- Pending: configure the Apple development team, validate a signed archive,
-  upload it, wait for processing, and install it through TestFlight.
+- Complete: an Apple development team and managed signing profile are selected
+  in the local Xcode project; no signing credential is committed.
+- Pending: enable Developer Mode on the paired iPhone, validate the full flow on
+  that device, choose the shipping name, upload the archive, wait for processing,
+  and install through TestFlight.

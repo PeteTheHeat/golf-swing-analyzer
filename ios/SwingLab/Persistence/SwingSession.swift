@@ -86,6 +86,18 @@ final class SwingSession {
     var status: String
     var analysisJSON: String?
     var referenceID: String?
+    /// Optional so existing stores migrate without rewriting legacy sessions.
+    /// A nil origin is the only legacy value treated as a personal swing.
+    var origin: String?
+    var referenceSourceKind: String?
+    var referenceDisplayName: String?
+    var referenceGolferName: String?
+    var referenceAttribution: String?
+    var referenceLicenseName: String?
+    var referenceSourceURL: String?
+    var referenceLicenseURL: String?
+    var referenceAllowedUse: String?
+    var referenceRightsStatus: String?
 
     init(
         id: UUID = UUID(),
@@ -115,6 +127,16 @@ final class SwingSession {
         self.status = status.rawValue
         self.analysisJSON = analysisJSON
         self.referenceID = referenceID
+        self.origin = nil
+        self.referenceSourceKind = nil
+        self.referenceDisplayName = nil
+        self.referenceGolferName = nil
+        self.referenceAttribution = nil
+        self.referenceLicenseName = nil
+        self.referenceSourceURL = nil
+        self.referenceLicenseURL = nil
+        self.referenceAllowedUse = nil
+        self.referenceRightsStatus = nil
     }
 
     var cameraView: SwingCameraView {
@@ -137,6 +159,20 @@ final class SwingSession {
         set { status = newValue.rawValue }
     }
 
+    var sessionOrigin: SwingSessionOrigin {
+        guard let origin else { return .personal }
+        return SwingSessionOrigin(rawValue: origin) ?? .unknown
+    }
+
+    var isPersonalSwing: Bool {
+        sessionOrigin == .personal
+    }
+
+    var isPrivateReference: Bool {
+        guard sessionOrigin == .reference else { return false }
+        return referenceAllowedUse == ReferenceAllowedUse.privateAnalysisOnly.rawValue
+    }
+
     var rangeDuration: TimeInterval {
         max(0, rangeEnd - rangeStart)
     }
@@ -144,6 +180,28 @@ final class SwingSession {
     func updateRange(start: TimeInterval, end: TimeInterval) {
         rangeStart = max(0, start)
         rangeEnd = max(rangeStart, end)
+    }
+
+    func apply(saveTarget: AnalysisSaveTarget) {
+        switch saveTarget {
+        case .personalSwing:
+            origin = SwingSessionOrigin.personal.rawValue
+            clearReferenceProvenance()
+
+        case let .privateReference(input):
+            origin = SwingSessionOrigin.reference.rawValue
+            referenceSourceKind = ReferenceSwingDescriptor.SourceKind.userImported.rawValue
+            referenceDisplayName = Self.nonblank(input.displayName)
+                ?? Self.nonblank(title)
+                ?? "Private reference"
+            referenceGolferName = Self.nonblank(input.golferName)
+            referenceAttribution = "Imported by you for private analysis"
+            referenceLicenseName = nil
+            referenceSourceURL = nil
+            referenceLicenseURL = nil
+            referenceAllowedUse = ReferenceAllowedUse.privateAnalysisOnly.rawValue
+            referenceRightsStatus = ReferenceRightsStatus.unverified.rawValue
+        }
     }
 
     func setAnalysis<Value: Encodable>(
@@ -166,6 +224,24 @@ final class SwingSession {
             throw SwingSessionCodingError.invalidUTF8
         }
         return try decoder.decode(type, from: data)
+    }
+
+    private func clearReferenceProvenance() {
+        referenceSourceKind = nil
+        referenceDisplayName = nil
+        referenceGolferName = nil
+        referenceAttribution = nil
+        referenceLicenseName = nil
+        referenceSourceURL = nil
+        referenceLicenseURL = nil
+        referenceAllowedUse = nil
+        referenceRightsStatus = nil
+    }
+
+    private static func nonblank(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

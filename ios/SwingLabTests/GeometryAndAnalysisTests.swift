@@ -280,6 +280,381 @@ final class GeometryAndAnalysisTests: XCTestCase {
         }
     }
 
+    func testAutomaticClipDetectorFindsTwoSwingsInALongVideo() throws {
+        let clips = SwingClipDetector.detect(
+            samples: syntheticMotionTimeline(duration: 24, swingStarts: [3, 14])
+        )
+
+        XCTAssertEqual(clips.count, 2)
+        let first = try XCTUnwrap(clips.first)
+        let second = try XCTUnwrap(clips.last)
+        XCTAssertEqual(first.events.topSeconds, 5.1, accuracy: 0.25)
+        XCTAssertEqual(first.events.impactSeconds, 5.7, accuracy: 0.25)
+        XCTAssertEqual(second.events.topSeconds, 16.1, accuracy: 0.25)
+        XCTAssertEqual(second.events.impactSeconds, 16.7, accuracy: 0.25)
+        XCTAssertLessThan(first.startSeconds, first.events.addressSeconds)
+        XCTAssertGreaterThan(first.endSeconds, first.events.finishSeconds)
+        XCTAssertLessThan(first.endSeconds, second.startSeconds)
+        XCTAssertGreaterThan(first.confidence, 0.70)
+        XCTAssertTrue(clips.allSatisfy { clip in
+            clip.events.addressSeconds < clip.events.topSeconds &&
+                clip.events.topSeconds < clip.events.impactSeconds &&
+                clip.events.impactSeconds < clip.events.finishSeconds &&
+                clip.startSeconds <= clip.events.addressSeconds &&
+                clip.startSeconds <= clip.events.topSeconds &&
+                clip.startSeconds <= clip.events.impactSeconds &&
+                clip.startSeconds <= clip.events.finishSeconds &&
+                clip.endSeconds >= clip.events.addressSeconds &&
+                clip.endSeconds >= clip.events.topSeconds &&
+                clip.endSeconds >= clip.events.impactSeconds &&
+                clip.endSeconds >= clip.events.finishSeconds
+        })
+    }
+
+    func testAutomaticClipDetectorCooperativelyCancelsLongDetection() {
+        let samples = syntheticMotionTimeline(duration: 300, swingStarts: [3, 140, 280])
+        var cancellationChecks = 0
+
+        XCTAssertThrowsError(
+            try SwingClipDetector.detect(
+                samples: samples,
+                cancellationCheck: {
+                    cancellationChecks += 1
+                    if cancellationChecks == 4 { throw CancellationError() }
+                }
+            )
+        ) { error in
+            XCTAssertTrue(error is CancellationError)
+        }
+        XCTAssertEqual(cancellationChecks, 4)
+    }
+
+    func testAutomaticClipDetectorRejectsOverlongSlowSwingWithoutClippingEvents() throws {
+        let samples = slowSyntheticMotionTimeline()
+        let included = SwingClipDetector.detect(samples: samples)
+        let clip = try XCTUnwrap(included.first)
+        let eventSpan = clip.events.finishSeconds - clip.events.addressSeconds
+        XCTAssertGreaterThan(eventSpan, 2.30)
+        XCTAssertLessThanOrEqual(clip.startSeconds, clip.events.addressSeconds)
+        XCTAssertGreaterThanOrEqual(clip.endSeconds, clip.events.finishSeconds)
+
+        let rejected = SwingClipDetector.detect(
+            samples: samples,
+            configuration: SwingClipDetectionConfiguration(
+                minimumClipDurationSeconds: 2.20,
+                maximumClipDurationSeconds: 2.20
+            )
+        )
+        XCTAssertTrue(rejected.isEmpty)
+    }
+
+    func testAutomaticClipDetectorScalesAcrossLongIdleVideo() {
+        let samples = stride(from: 0.0, through: 1_800.0, by: 0.2).map { time in
+            SwingMotionSample(
+                timestampSeconds: time,
+                handHeight: 0,
+                handSpeed: 0.03,
+                poseConfidence: 0.95
+            )
+        }
+
+        XCTAssertTrue(SwingClipDetector.detect(samples: samples).isEmpty)
+    }
+
+    func testAutomaticClipDetectorRejectsIdlePoseNoise() {
+        let sampleRate = 10.0
+        let samples = stride(from: 0.0, through: 20.0, by: 1 / sampleRate).map { time in
+            SwingMotionSample(
+                timestampSeconds: time,
+                handHeight: sin(time * 2.3) * 0.035,
+                handSpeed: Int((time * sampleRate).rounded()).isMultiple(of: 37) ? 0.65 : 0.05,
+                poseConfidence: 0.94
+            )
+        }
+
+        XCTAssertTrue(SwingClipDetector.detect(samples: samples).isEmpty)
+    }
+
+    func testAutomaticClipDetectorSuppressesOverlappingTopHypotheses() throws {
+        let samples = syntheticMotionTimeline(
+            duration: 10,
+            swingStarts: [3],
+            topRipple: true
+        )
+        let clips = SwingClipDetector.detect(
+            samples: samples,
+            configuration: SwingClipDetectionConfiguration(
+                minimumTopSpacingSeconds: 1.2,
+                overlapThreshold: 0.35
+            )
+        )
+
+        let clip = try XCTUnwrap(clips.first)
+        XCTAssertEqual(clips.count, 1)
+        XCTAssertEqual(clip.events.topSeconds, 5.1, accuracy: 0.30)
+        XCTAssertLessThanOrEqual(clip.durationSeconds, 6.5)
+    }
+
+    func testAutomaticClipDetectorConsumesExistingPoseTrack() throws {
+        let track = syntheticSwingTrack()
+        let clips = try SwingClipDetector.detect(
+            in: track,
+            assetDuration: track.selectedRangeDurationSeconds,
+            minimumConfidence: 0.30
+        )
+
+        let clip = try XCTUnwrap(clips.first)
+        XCTAssertEqual(clips.count, 1)
+        XCTAssertEqual(clip.events.topSeconds, 2.5, accuracy: 0.25)
+        XCTAssertEqual(clip.events.impactSeconds, 3.1, accuracy: 0.30)
+        XCTAssertGreaterThan(clip.confidence, 0.60)
+    }
+
+    func testAutomaticClipDetectorDropsAssetBoundThatWouldCutAnEvent() throws {
+        let track = syntheticSwingTrack()
+        let clips = try SwingClipDetector.detect(
+            in: track,
+            assetDuration: 3.2,
+            minimumConfidence: 0.30
+        )
+
+        XCTAssertTrue(clips.isEmpty)
+    }
+
+    func testAutomaticClipDetectorNormalizesScalePerScene() throws {
+        let firstScene = syntheticSwingTrack()
+        let secondSceneFrames = firstScene.frames.map { frame in
+            scaledFrame(frame, by: 0.58, timestampOffset: 5.1)
+        }
+        let track = PoseTrack(
+            selectedRangeStartSeconds: 0,
+            selectedRangeDurationSeconds: 10.1,
+            nominalSampleRate: 10,
+            orientation: .up,
+            frames: firstScene.frames + secondSceneFrames
+        )
+
+        let trajectory = BodyTrajectory.samples(from: track.frames, minimumConfidence: 0.30)
+        let firstScale = try XCTUnwrap(
+            Statistics.median(trajectory.filter { $0.continuitySegment == 0 }.map(\.bodyScale))
+        )
+        let secondScale = try XCTUnwrap(
+            Statistics.median(trajectory.filter { $0.continuitySegment == 1 }.map(\.bodyScale))
+        )
+        XCTAssertEqual(secondScale / firstScale, 0.58, accuracy: 0.02)
+        XCTAssertEqual(Set(trajectory.map(\.continuitySegment)), Set([0, 1]))
+
+        let clips = try SwingClipDetector.detect(
+            in: track,
+            assetDuration: 10.1,
+            minimumConfidence: 0.30
+        )
+        XCTAssertEqual(clips.count, 2)
+    }
+
+    func testAutomaticClipDetectorRejectsImplausibleStance() throws {
+        var track = syntheticSwingTrack()
+        track.frames = track.frames.map { frame in
+            var modified = frame
+            if var leftAnkle = modified[.leftAnkle],
+               var rightAnkle = modified[.rightAnkle] {
+                leftAnkle.x = 0.495
+                rightAnkle.x = 0.505
+                modified.joints[.leftAnkle] = leftAnkle
+                modified.joints[.rightAnkle] = rightAnkle
+            }
+            return modified
+        }
+
+        let clips = try SwingClipDetector.detect(
+            in: track,
+            assetDuration: track.selectedRangeDurationSeconds
+        )
+        XCTAssertTrue(clips.isEmpty)
+    }
+
+    func testAutomaticClipDetectorRejectsHeadTrackingJump() throws {
+        var track = syntheticSwingTrack()
+        let headJoints: [PoseJoint] = [
+            .nose, .leftEye, .rightEye, .leftEar, .rightEar,
+        ]
+        track.frames = track.frames.map { frame in
+            var modified = frame
+            if (2.2...2.7).contains(frame.timestampSeconds) {
+                for joint in headJoints {
+                    guard var point = modified[joint] else { continue }
+                    point.x += 0.35
+                    modified.joints[joint] = point
+                }
+            }
+            return modified
+        }
+
+        let clips = try SwingClipDetector.detect(
+            in: track,
+            assetDuration: track.selectedRangeDurationSeconds
+        )
+        XCTAssertTrue(clips.isEmpty)
+    }
+
+    func testPosePersonSelectorStaysWithGolferWhenVisionResultOrderChanges() throws {
+        var selector = TemporalPosePersonSelector()
+        let golfer = trackingFrame(centerX: 0.30, centerY: 0.60, scale: 0.24, timestamp: 0)
+        let bystander = trackingFrame(centerX: 0.78, centerY: 0.58, scale: 0.10, timestamp: 0)
+
+        let initial = try XCTUnwrap(
+            selector.select(from: [bystander, golfer], timestampSeconds: 0)
+        )
+        XCTAssertEqual(try XCTUnwrap(initial[.root]?.x), 0.30, accuracy: 0.000_001)
+
+        let movedGolfer = trackingFrame(
+            centerX: 0.32,
+            centerY: 0.59,
+            scale: 0.23,
+            timestamp: 0.1
+        )
+        let selected = try XCTUnwrap(
+            selector.select(from: [
+                trackingFrame(centerX: 0.76, centerY: 0.58, scale: 0.13, timestamp: 0.1),
+                movedGolfer,
+            ], timestampSeconds: 0.1)
+        )
+        XCTAssertEqual(try XCTUnwrap(selected[.root]?.x), 0.32, accuracy: 0.000_001)
+    }
+
+    func testPosePersonSelectorPrefersCenteredGolferOverLargerEdgeBystander() throws {
+        var selector = TemporalPosePersonSelector()
+        let golfer = trackingFrame(centerX: 0.46, centerY: 0.58, scale: 0.18, timestamp: 0)
+        let largerBystander = trackingFrame(
+            centerX: 0.86,
+            centerY: 0.58,
+            scale: 0.30,
+            timestamp: 0
+        )
+
+        let selected = try XCTUnwrap(
+            selector.select(from: [largerBystander, golfer], timestampSeconds: 0)
+        )
+
+        XCTAssertEqual(try XCTUnwrap(selected[.root]?.x), 0.46, accuracy: 0.000_001)
+    }
+
+    func testPosePersonSelectorDoesNotUseFrameRateDependentDefaultReset() throws {
+        var selector = TemporalPosePersonSelector()
+        let golfer = trackingFrame(centerX: 0.30, centerY: 0.60, scale: 0.24, timestamp: 0)
+        let bystander = trackingFrame(centerX: 0.72, centerY: 0.58, scale: 0.18, timestamp: 0)
+        XCTAssertNotNil(selector.select(from: [golfer], timestampSeconds: 0))
+
+        for frameIndex in 1...7 {
+            let timestamp = Double(frameIndex) / 15
+            XCTAssertNil(
+                selector.select(from: [bystander], timestampSeconds: timestamp)
+            )
+        }
+
+        let returnedGolfer = trackingFrame(
+            centerX: 0.31,
+            centerY: 0.60,
+            scale: 0.23,
+            timestamp: 8.0 / 15
+        )
+        let selected = try XCTUnwrap(
+            selector.select(from: [bystander, returnedGolfer], timestampSeconds: 8.0 / 15)
+        )
+        XCTAssertEqual(try XCTUnwrap(selected[.root]?.x), 0.31, accuracy: 0.000_001)
+    }
+
+    func testPosePersonSelectorDoesNotSwitchDuringTransientGolferLoss() throws {
+        var selector = TemporalPosePersonSelector(
+            configuration: .init(maximumConsecutiveMisses: 3)
+        )
+        let golfer = trackingFrame(centerX: 0.30, centerY: 0.60, scale: 0.24, timestamp: 0)
+        let bystander = trackingFrame(centerX: 0.78, centerY: 0.58, scale: 0.12, timestamp: 0.1)
+        XCTAssertNotNil(selector.select(from: [golfer, bystander], timestampSeconds: 0))
+
+        XCTAssertNil(selector.select(from: [bystander], timestampSeconds: 0.1))
+        XCTAssertNil(selector.select(from: [bystander], timestampSeconds: 0.2))
+
+        let returnedGolfer = trackingFrame(
+            centerX: 0.31,
+            centerY: 0.60,
+            scale: 0.23,
+            timestamp: 0.3
+        )
+        let selected = try XCTUnwrap(
+            selector.select(from: [bystander, returnedGolfer], timestampSeconds: 0.3)
+        )
+        XCTAssertEqual(try XCTUnwrap(selected[.root]?.x), 0.31, accuracy: 0.000_001)
+    }
+
+    func testPosePersonSelectorResetsOnlyAfterConfiguredIncompatibleFrames() throws {
+        var selector = TemporalPosePersonSelector(
+            configuration: .init(maximumConsecutiveMisses: 2)
+        )
+        let firstSceneGolfer = trackingFrame(
+            centerX: 0.22,
+            centerY: 0.60,
+            scale: 0.23,
+            timestamp: 0
+        )
+        let secondSceneGolfer = trackingFrame(
+            centerX: 0.76,
+            centerY: 0.57,
+            scale: 0.18,
+            timestamp: 0.1
+        )
+        XCTAssertNotNil(selector.select(from: [firstSceneGolfer], timestampSeconds: 0))
+
+        XCTAssertNil(selector.select(from: [secondSceneGolfer], timestampSeconds: 0.1))
+        XCTAssertNil(selector.select(from: [secondSceneGolfer], timestampSeconds: 0.2))
+
+        let reacquired = try XCTUnwrap(
+            selector.select(from: [secondSceneGolfer], timestampSeconds: 0.3)
+        )
+        XCTAssertEqual(try XCTUnwrap(reacquired[.root]?.x), 0.76, accuracy: 0.000_001)
+    }
+
+    func testPosePersonSelectorResetsAcrossLongTimestampGap() throws {
+        var selector = TemporalPosePersonSelector(
+            configuration: .init(maximumGapSeconds: 0.5)
+        )
+        XCTAssertNotNil(
+            selector.select(
+                from: [trackingFrame(centerX: 0.20, centerY: 0.60, scale: 0.23, timestamp: 0)],
+                timestampSeconds: 0
+            )
+        )
+
+        let newScene = trackingFrame(
+            centerX: 0.80,
+            centerY: 0.60,
+            scale: 0.20,
+            timestamp: 1
+        )
+        let selected = try XCTUnwrap(
+            selector.select(from: [newScene], timestampSeconds: 1)
+        )
+        XCTAssertEqual(try XCTUnwrap(selected[.root]?.x), 0.80, accuracy: 0.000_001)
+    }
+
+    func testPosePersonSelectorPreservesSinglePersonSequence() throws {
+        var selector = TemporalPosePersonSelector()
+        for index in 0..<6 {
+            let timestamp = Double(index) / 10
+            let x = 0.40 + Double(index) * 0.006
+            let frame = trackingFrame(
+                centerX: x,
+                centerY: 0.60,
+                scale: 0.22,
+                timestamp: timestamp
+            )
+            let selected = try XCTUnwrap(
+                selector.select(from: [frame], timestampSeconds: timestamp)
+            )
+            XCTAssertEqual(try XCTUnwrap(selected[.root]?.x), x, accuracy: 0.000_001)
+        }
+    }
+
     #if DEBUG && targetEnvironment(simulator)
     func testSimulatorFixtureProducesReviewableAnalysis() throws {
         let track = SimulatorPoseFixture.make(
@@ -387,5 +762,137 @@ final class GeometryAndAnalysisTests: XCTestCase {
             return (0.67 - progress * 0.12, 0.67 - progress * 0.42)
         }
         return (0.55, 0.25)
+    }
+
+    private func syntheticMotionTimeline(
+        duration: Double,
+        swingStarts: [Double],
+        topRipple: Bool = false
+    ) -> [SwingMotionSample] {
+        let sampleRate = 10.0
+        return stride(from: 0.0, through: duration, by: 1 / sampleRate).map { time in
+            var height = sin(time * 1.7) * 0.008
+            var speed = 0.04
+            for start in swingStarts {
+                let local = time - start
+                switch local {
+                case 0..<1.0:
+                    height = 0
+                    speed = 0.04
+                case 1.0..<2.0:
+                    let progress = local - 1.0
+                    height = progress * 0.65
+                    speed = 0.72
+                case 2.0..<2.2:
+                    height = 0.65
+                    if topRipple {
+                        height += local < 2.1 ? 0.018 : -0.012
+                    }
+                    speed = 0.16
+                case 2.2..<2.7:
+                    let progress = (local - 2.2) / 0.5
+                    height = 0.65 * (1 - progress)
+                    speed = 1.45
+                case 2.7..<3.5:
+                    let progress = (local - 2.7) / 0.8
+                    height = progress * 0.55
+                    speed = 0.80
+                case 3.5..<4.6:
+                    height = 0.55
+                    speed = 0.10
+                default:
+                    continue
+                }
+            }
+            return SwingMotionSample(
+                timestampSeconds: time,
+                handHeight: height,
+                handSpeed: speed,
+                poseConfidence: 0.95
+            )
+        }
+    }
+
+    private func slowSyntheticMotionTimeline() -> [SwingMotionSample] {
+        let sampleRate = 10.0
+        return stride(from: 0.0, through: 9.0, by: 1 / sampleRate).map { time in
+            let local = time - 1.0
+            let height: Double
+            let speed: Double
+            switch local {
+            case ..<0.6:
+                height = 0
+                speed = 0.04
+            case 0.6..<3.0:
+                height = (local - 0.6) / 2.4 * 0.66
+                speed = 0.34
+            case 3.0..<3.3:
+                height = 0.66
+                speed = 0.14
+            case 3.3..<4.1:
+                height = 0.66 * (1 - (local - 3.3) / 0.8)
+                speed = 1.25
+            case 4.1..<5.6:
+                height = (local - 4.1) / 1.5 * 0.56
+                speed = 0.58
+            default:
+                height = 0.56
+                speed = 0.09
+            }
+            return SwingMotionSample(
+                timestampSeconds: time,
+                handHeight: height,
+                handSpeed: speed,
+                poseConfidence: 0.95
+            )
+        }
+    }
+
+    private func trackingFrame(
+        centerX: Double,
+        centerY: Double,
+        scale: Double,
+        timestamp: Double
+    ) -> PoseFrame {
+        let point: (Double, Double) -> PosePoint = {
+            PosePoint(x: $0, y: $1, confidence: 0.95)
+        }
+        return PoseFrame(
+            timestampSeconds: timestamp,
+            joints: [
+                .nose: point(centerX, centerY - scale * 1.15),
+                .neck: point(centerX, centerY - scale),
+                .root: point(centerX, centerY),
+                .leftShoulder: point(centerX - scale * 0.50, centerY - scale * 0.82),
+                .rightShoulder: point(centerX + scale * 0.50, centerY - scale * 0.82),
+                .leftHip: point(centerX - scale * 0.40, centerY),
+                .rightHip: point(centerX + scale * 0.40, centerY),
+                .leftKnee: point(centerX - scale * 0.35, centerY + scale * 0.75),
+                .rightKnee: point(centerX + scale * 0.35, centerY + scale * 0.75),
+                .leftAnkle: point(centerX - scale * 0.35, centerY + scale * 1.50),
+                .rightAnkle: point(centerX + scale * 0.35, centerY + scale * 1.50),
+            ]
+        )
+    }
+
+    private func scaledFrame(
+        _ frame: PoseFrame,
+        by factor: Double,
+        timestampOffset: Double
+    ) -> PoseFrame {
+        let center = SIMD2<Double>(0.5, 0.55)
+        let joints = frame.joints.mapValues { point in
+            let original = SIMD2<Double>(point.x, point.y)
+            let scaled = center + (original - center) * factor
+            return PosePoint(
+                x: scaled.x,
+                y: scaled.y,
+                confidence: point.confidence
+            )
+        }
+        return PoseFrame(
+            timestampSeconds: frame.timestampSeconds + timestampOffset,
+            joints: joints
+        )
     }
 }

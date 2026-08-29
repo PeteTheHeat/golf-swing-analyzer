@@ -57,23 +57,48 @@ struct LibraryShellView: View {
 
     let onAnalyze: () -> Void
 
+    private var personalSessions: [SwingSession] {
+        sessions.filter(\.isPersonalSwing)
+    }
+
+    /// Includes malformed explicit origins so they never leak into the user's
+    /// personal-session count. Unknown provenance stays visible for deletion.
+    private var referenceSessions: [SwingSession] {
+        sessions.filter { !$0.isPersonalSwing }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: SwingTheme.Spacing.large) {
                     libraryHeader
 
-                    if sessions.isEmpty {
+                    if personalSessions.isEmpty {
                         EmptyLibraryCard(onAnalyze: onAnalyze)
                     } else {
                         SectionHeading(
                             eyebrow: "Your sessions",
                             title: "Recent swings",
-                            trailingText: "\(sessions.count) total"
+                            trailingText: "\(personalSessions.count) total"
                         )
 
-                        ForEach(sessions) { session in
-                            sessionRow(session)
+                        ForEach(personalSessions) { session in
+                            sessionRow(session, allowsReview: true)
+                        }
+                    }
+
+                    if !referenceSessions.isEmpty {
+                        SectionHeading(
+                            eyebrow: "Reference golfers",
+                            title: "Private reference footage",
+                            trailingText: "\(referenceSessions.count) total"
+                        )
+
+                        ForEach(referenceSessions) { session in
+                            sessionRow(
+                                session,
+                                allowsReview: session.sessionOrigin == .reference
+                            )
                         }
                     }
                 }
@@ -110,10 +135,14 @@ struct LibraryShellView: View {
         }
     }
 
-    private func sessionRow(_ session: SwingSession) -> some View {
+    private func sessionRow(
+        _ session: SwingSession,
+        allowsReview: Bool
+    ) -> some View {
         HStack(spacing: SwingTheme.Spacing.small) {
             Group {
-                if session.analysisStatus == .complete,
+                if allowsReview,
+                   session.analysisStatus == .complete,
                    session.analysisJSON != nil {
                     NavigationLink {
                         SavedSwingReviewView(session: session)
@@ -239,6 +268,9 @@ private struct SwingSessionCard: View {
                         .foregroundStyle(SwingTheme.mutedText)
 
                     HStack(spacing: SwingTheme.Spacing.small) {
+                        if !session.isPersonalSwing {
+                            SwingPill(text: provenanceLabel)
+                        }
                         SwingPill(text: session.cameraView.displayName)
                         SwingPill(text: session.selectedClub.displayName)
                         if session.analysisStatus != .complete {
@@ -267,6 +299,21 @@ private struct SwingSessionCard: View {
                         .foregroundStyle(SwingTheme.subtleText)
                 }
             }
+        }
+    }
+
+    private var provenanceLabel: String {
+        switch session.sessionOrigin {
+        case .personal:
+            "Your swing"
+        case .reference where session.isPrivateReference:
+            "Private reference"
+        case .reference:
+            ReferenceSwingDescriptorFactory.make(from: session)?.isDistributionReady == true
+                ? "Reference"
+                : "Unverified reference"
+        case .unknown:
+            "Origin unknown"
         }
     }
 }

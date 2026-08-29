@@ -22,6 +22,7 @@ struct AnalysisFlowView: View {
                 if model.isAnalyzing {
                     AnalysisProcessingView(
                         snapshot: model.progressSnapshot,
+                        subject: model.activeSubject,
                         onCancel: model.cancelAnalysis
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
@@ -54,6 +55,7 @@ struct AnalysisFlowView: View {
 
 private struct AnalysisProcessingView: View {
     let snapshot: SwingAnalysisProgressSnapshot
+    let subject: AnalysisReviewSubject
     let onCancel: () -> Void
 
     var body: some View {
@@ -71,7 +73,7 @@ private struct AnalysisProcessingView: View {
                 progressDial
 
                 VStack(spacing: SwingTheme.Spacing.small) {
-                    Text("READING YOUR SWING")
+                    Text("READING \(subject.reviewLabel.uppercased())")
                         .font(SwingTheme.Typography.eyebrow)
                         .tracking(1.8)
                         .foregroundStyle(SwingTheme.coral)

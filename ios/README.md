@@ -1,6 +1,9 @@
 # SwingLab for iOS
 
-SwingLab is a native SwiftUI app for selecting a golf swing video, trimming the swing, running local pose analysis, and reviewing frame-specific feedback. The visual system is original: dark charcoal surfaces, warm cream type, and a coral analysis accent.
+SwingLab is a native SwiftUI app for selecting a golf video, finding complete
+swings anywhere in the imported footage, refining a clip, running local pose
+analysis, and reviewing frame-specific feedback. The visual system is original: dark
+charcoal surfaces, warm cream type, and a coral analysis accent.
 
 `SwingLab` is a working development name. Multiple golf apps already use that
 name in the App Store, so choose a distinct product name before creating the
@@ -32,6 +35,16 @@ Automatic signing is enabled, but the Apple team identifier is intentionally not
 - `Persistence` contains the local-only SwiftData schema and repository.
 - `Core` is reserved for media, pose, and analysis services.
 - `Features` is reserved for import/trim, analysis review, library detail, and settings flows.
+
+Viable imports are scanned locally at a reduced pose sample rate. The detector
+returns multiple source time ranges; it does not duplicate or export the source
+video. Choosing a range opens the normal trim screen for frame-level refinement.
+Cancellation, no-result recovery, and manual trim remain available.
+
+The trim screen can save a clip as either the golfer's swing or a private
+reference. Private references require a display name and remain permanently
+classified as private and unverified. User-entered metadata cannot mark footage
+as licensed or distribution-ready.
 
 `SwingSession` is the durable integration boundary. It stores the selected video's relative local path, capture context, trim range, analysis lifecycle, score, encoded analysis result, and optional reference-swing identifier. Feature code can encode any `Codable` result with `setAnalysis(_:)` and recover it with `analysis(as:)`.
 

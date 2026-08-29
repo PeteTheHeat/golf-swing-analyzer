@@ -5,6 +5,7 @@ struct SwingComparisonView: View {
     let userAnalysis: SwingAnalysisResult
     let reference: ReferenceSwing
     let initialFindingID: String?
+    let primaryPaneTitle: String
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var userPlayer: VideoPlayerController
@@ -16,12 +17,14 @@ struct SwingComparisonView: View {
         userVideo: ImportedVideo,
         userAnalysis: SwingAnalysisResult,
         reference: ReferenceSwing,
-        initialFindingID: String? = nil
+        initialFindingID: String? = nil,
+        primaryPaneTitle: String = "YOUR SWING"
     ) {
         self.userVideo = userVideo
         self.userAnalysis = userAnalysis
         self.reference = reference
         self.initialFindingID = initialFindingID
+        self.primaryPaneTitle = primaryPaneTitle
         _userPlayer = StateObject(wrappedValue: VideoPlayerController(video: userVideo))
         _referencePlayer = StateObject(wrappedValue: VideoPlayerController(video: reference.video))
         let initialIndex = userAnalysis.findings.firstIndex { $0.id == initialFindingID } ?? 0
@@ -48,7 +51,7 @@ struct SwingComparisonView: View {
             VStack(spacing: 0) {
                 comparisonHeader
                 swingPane(
-                    title: "YOUR SWING",
+                    title: primaryPaneTitle,
                     subtitle: finding?.title,
                     player: userPlayer,
                     pose: userPose,
@@ -61,8 +64,8 @@ struct SwingComparisonView: View {
                     .frame(height: 2)
 
                 swingPane(
-                    title: reference.descriptor.sourceKind == .bestSelf ? "BEST SWING" : "REFERENCE",
-                    subtitle: reference.descriptor.displayName,
+                    title: referencePaneTitle,
+                    subtitle: reference.descriptor.displayLabel,
                     player: referencePlayer,
                     pose: referencePose,
                     aspectRatio: reference.video.aspectRatio,
@@ -198,6 +201,21 @@ struct SwingComparisonView: View {
         .padding(.horizontal, SwingTheme.Spacing.screen)
         .padding(.vertical, SwingTheme.Spacing.medium)
         .background(SwingTheme.deepCanvas)
+    }
+
+    private var referencePaneTitle: String {
+        switch reference.descriptor.sourceKind {
+        case .bestSelf:
+            "BEST SWING"
+        case .userImported:
+            "PRIVATE REFERENCE"
+        case .licensedProfessional, .instructor:
+            reference.descriptor.isDistributionReady
+                ? "REFERENCE"
+                : "UNVERIFIED REFERENCE"
+        case .unknown:
+            "UNVERIFIED REFERENCE"
+        }
     }
 
     private func seekToFinding() {

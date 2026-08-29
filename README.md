@@ -13,8 +13,12 @@ club or ball data when the video cannot provide it.
 The repository now also contains a native SwiftUI app in [`ios/`](ios/). It is
 an original, local-first product for iOS 17 and newer. The current app can:
 
-- choose one video through Apple's limited Photos picker;
+- choose any video through Apple's limited Photos picker;
 - copy only that video into private app storage;
+- scan any viable imported video on-device and find multiple complete swing clips
+  automatically;
+- choose a detected clip or fall back to manual trim, then refine frame-snapped
+  in/out points;
 - move and trim a frame-snapped swing window;
 - collect camera view, handedness, and club context;
 - extract 2D body pose on-device with Apple Vision;
@@ -24,11 +28,13 @@ an original, local-first product for iOS 17 and newer. The current app can:
 - scrub an annotated review timeline and step frame by frame;
 - preserve completed reviews in a local SwiftData history;
 - delete a saved swing and its uniquely owned local media;
-- phase-match two saved swings in a synchronized Best Swing comparison.
+- save an imported clip as a clearly labeled private, unverified reference;
+- phase-match a swing against a saved Best Swing or private reference.
 
 The app has no account, backend, analytics SDK, or CloudKit sync. User video and
-analysis stay on the iPhone. A reference catalog can support licensed coach or
-professional footage later, but no third-party golfer footage ships in this
+analysis stay on the iPhone. User-imported reference footage is private and is
+never presented as licensed. A future catalog can support rights-cleared coach
+or professional footage, but no third-party golfer footage ships in this
 repository.
 
 Generate the Xcode project with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
@@ -157,10 +163,12 @@ no network calls during analysis.
 
 1. Validate Vision analysis and performance on a physical iPhone, then ship the
    first internal TestFlight build.
-2. Add manual phase correction and an exported annotated slow-motion clip.
-3. Add optional, confidence-gated clubhead point tracking.
-4. Add rights-cleared instructor or professional reference footage.
-5. Support synchronized face-on and down-the-line videos for calibrated 3D
+2. Validate automatic multi-swing discovery against a larger range of real
+   phone videos.
+3. Add manual phase correction and an exported annotated slow-motion clip.
+4. Add optional, confidence-gated clubhead point tracking.
+5. Add rights-cleared instructor or professional reference footage.
+6. Support synchronized face-on and down-the-line videos for calibrated 3D
    work, rather than fabricating another view from one camera.
 
 ## Development

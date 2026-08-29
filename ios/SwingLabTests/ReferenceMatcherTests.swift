@@ -16,6 +16,8 @@ final class ReferenceMatcherTests: XCTestCase {
             attribution: "Your saved swing",
             sourceURL: nil,
             licenseURL: nil,
+            allowedUse: .privateAnalysisOnly,
+            rightsStatus: .unverified,
             analysisJSON: "{}"
         )
 
@@ -64,5 +66,85 @@ final class ReferenceMatcherTests: XCTestCase {
             25,
             accuracy: 0.000_1
         )
+    }
+
+    func testDistributionReadinessRequiresCompleteVerifiedWebProvenance() {
+        var descriptor = ReferenceSwingDescriptor(
+            id: "licensed-reference",
+            displayName: "Instructor driver",
+            golferName: "Instructor",
+            sourceKind: .instructor,
+            videoRelativePath: "instructor.mov",
+            cameraView: .downTheLine,
+            handedness: .right,
+            club: .driver,
+            licenseName: "Commercial license",
+            attribution: "Provided by Example Golf",
+            sourceURL: URL(string: "https://example.com/source"),
+            licenseURL: URL(string: "https://example.com/license"),
+            allowedUse: .distributionAllowed,
+            rightsStatus: .verified,
+            analysisJSON: "{}"
+        )
+
+        XCTAssertTrue(descriptor.isDistributionReady)
+
+        descriptor.attribution = "   "
+        XCTAssertFalse(descriptor.isDistributionReady)
+
+        descriptor.attribution = "Provided by Example Golf"
+        descriptor.rightsStatus = .unverified
+        XCTAssertFalse(descriptor.isDistributionReady)
+    }
+
+    func testLocalReferenceCanNeverBecomeDistributionReadyFromLabels() {
+        let descriptor = ReferenceSwingDescriptor(
+            id: "local-reference",
+            displayName: "Famous golfer",
+            golferName: "Famous golfer",
+            sourceKind: .userImported,
+            videoRelativePath: "reference.mov",
+            cameraView: .faceOn,
+            handedness: .right,
+            club: .driver,
+            licenseName: "Looks licensed",
+            attribution: "A label entered by the user",
+            sourceURL: URL(string: "https://example.com/source"),
+            licenseURL: URL(string: "https://example.com/license"),
+            allowedUse: .distributionAllowed,
+            rightsStatus: .verified,
+            analysisJSON: "{}"
+        )
+
+        XCTAssertFalse(descriptor.isDistributionReady)
+    }
+
+    func testDescriptorFactoryClassifiesLegacyNilAsBestSelf() {
+        let session = SwingSession(
+            title: "Legacy driver",
+            videoRelativePath: "legacy.mov",
+            status: .complete,
+            analysisJSON: "{}"
+        )
+
+        XCTAssertEqual(session.sessionOrigin, .personal)
+        XCTAssertEqual(
+            ReferenceSwingDescriptorFactory.make(from: session)?.sourceKind,
+            .bestSelf
+        )
+    }
+
+    func testDescriptorFactoryFailsClosedForMalformedExplicitOrigin() {
+        let session = SwingSession(
+            title: "Malformed",
+            videoRelativePath: "malformed.mov",
+            status: .complete,
+            analysisJSON: "{}"
+        )
+        session.origin = "  "
+
+        XCTAssertEqual(session.sessionOrigin, .unknown)
+        XCTAssertFalse(session.isPersonalSwing)
+        XCTAssertNil(ReferenceSwingDescriptorFactory.make(from: session))
     }
 }

@@ -91,8 +91,13 @@ struct SwingSessionRepository {
         club: SwingClub = .unknown,
         rangeStart: TimeInterval = 0,
         rangeEnd: TimeInterval = 0,
-        status: SwingAnalysisStatus = .draft
+        status: SwingAnalysisStatus = .draft,
+        saveTarget: AnalysisSaveTarget = .personalSwing
     ) throws -> SwingSession {
+        guard saveTarget.isValidForAnalysis else {
+            throw SwingSessionRepositoryError.invalidSaveTarget
+        }
+
         let session = SwingSession(
             title: title,
             date: date,
@@ -104,6 +109,7 @@ struct SwingSessionRepository {
             rangeEnd: rangeEnd,
             status: status
         )
+        session.apply(saveTarget: saveTarget)
         context.insert(session)
         try context.save()
         return session
@@ -206,5 +212,16 @@ struct SwingSessionRepository {
             && filename != ".."
             && !filename.contains("/")
             && !filename.contains("\\")
+    }
+}
+
+enum SwingSessionRepositoryError: LocalizedError {
+    case invalidSaveTarget
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidSaveTarget:
+            "A private reference needs a nonblank name before it can be saved."
+        }
     }
 }

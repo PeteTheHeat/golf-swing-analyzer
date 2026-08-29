@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 @testable import SwingLab
 
@@ -155,6 +156,84 @@ final class TrimSelectionTests: XCTestCase {
         XCTAssertEqual(selection.start, 0)
         XCTAssertEqual(selection.end, 0)
         XCTAssertFalse(selection.isValid)
+    }
+
+    func testPersonalSaveTargetIsValidWithoutReferenceMetadata() {
+        XCTAssertTrue(AnalysisSaveTarget.personalSwing.isValidForAnalysis)
+    }
+
+    func testPrivateReferenceRequiresNonblankName() {
+        XCTAssertFalse(
+            AnalysisSaveTarget.privateReference(
+                PrivateReferenceInput(displayName: " \n\t ")
+            ).isValidForAnalysis
+        )
+        XCTAssertTrue(
+            AnalysisSaveTarget.privateReference(
+                PrivateReferenceInput(displayName: "Coach model")
+            ).isValidForAnalysis
+        )
+    }
+
+    func testDetectedCandidateCreatesFrameSnappedTrimSelection() {
+        let video = ImportedVideo(
+            fileURL: URL(fileURLWithPath: "/tmp/discovery-test.mov"),
+            displayName: "Discovery test",
+            duration: CMTime(seconds: 30, preferredTimescale: 600),
+            naturalSize: CGSize(width: 1920, height: 1080),
+            nominalFrameRate: 25,
+            frameDuration: CMTime(value: 1, timescale: 25),
+            fileSizeBytes: 1
+        )
+        let candidate = SwingDiscoveryCandidate(
+            id: 6.2,
+            startSeconds: 4.13,
+            endSeconds: 8.17,
+            confidence: 0.81
+        )
+
+        let selection = candidate.trimSelection(for: video)
+
+        XCTAssertEqual(selection.start, 4.12, accuracy: 0.000_001)
+        XCTAssertEqual(selection.end, 8.16, accuracy: 0.000_001)
+        XCTAssertEqual(selection.duration, 4.04, accuracy: 0.000_001)
+        XCTAssertTrue(selection.isValid)
+    }
+
+    func testDetectedCandidateIsBoundedByTrimInvariants() {
+        let video = ImportedVideo(
+            fileURL: URL(fileURLWithPath: "/tmp/discovery-bounds.mov"),
+            displayName: "Discovery bounds",
+            duration: CMTime(seconds: 14, preferredTimescale: 600),
+            naturalSize: CGSize(width: 1080, height: 1920),
+            nominalFrameRate: 30,
+            frameDuration: CMTime(value: 1, timescale: 30),
+            fileSizeBytes: 1
+        )
+        let candidate = SwingDiscoveryCandidate(
+            id: 5,
+            startSeconds: -4,
+            endSeconds: 80,
+            confidence: 2
+        )
+
+        let selection = candidate.trimSelection(for: video)
+
+        XCTAssertEqual(candidate.startSeconds, 0)
+        XCTAssertEqual(candidate.confidence, 1)
+        XCTAssertEqual(selection.start, 0, accuracy: 0.000_001)
+        XCTAssertEqual(selection.end, 12, accuracy: 0.000_001)
+        XCTAssertTrue(selection.isValid)
+    }
+
+    @MainActor
+    func testAutomaticDiscoveryRunsForEveryViableImportedVideo() {
+        XCTAssertTrue(ImportTrimView.shouldAutomaticallyDiscover(videoDuration: 1))
+        XCTAssertTrue(ImportTrimView.shouldAutomaticallyDiscover(videoDuration: 10))
+        XCTAssertTrue(ImportTrimView.shouldAutomaticallyDiscover(videoDuration: 12))
+        XCTAssertTrue(ImportTrimView.shouldAutomaticallyDiscover(videoDuration: 12.01))
+        XCTAssertFalse(ImportTrimView.shouldAutomaticallyDiscover(videoDuration: 0.99))
+        XCTAssertFalse(ImportTrimView.shouldAutomaticallyDiscover(videoDuration: .nan))
     }
 
     @MainActor

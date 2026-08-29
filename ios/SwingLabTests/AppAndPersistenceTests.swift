@@ -91,6 +91,84 @@ struct AppAndPersistenceTests {
         #expect(sessions.first?.cameraView == .faceOn)
     }
 
+    @Test("Repository persists local references as private and unverified")
+    func privateReferenceProvenance() throws {
+        let container = try SwingPersistence.makeContainer(isStoredInMemoryOnly: true)
+        let repository = SwingSessionRepository(context: container.mainContext)
+
+        let session = try repository.create(
+            title: "Imported coach swing",
+            videoRelativePath: "coach.mov",
+            cameraView: .downTheLine,
+            club: .driver,
+            status: .complete,
+            saveTarget: .privateReference(PrivateReferenceInput(
+                displayName: "  Coach example  ",
+                golferName: "  Sam Coach  "
+            ))
+        )
+        try session.setAnalysis(["result": "complete"])
+        try repository.save()
+
+        #expect(session.sessionOrigin == .reference)
+        #expect(session.isPrivateReference)
+        #expect(session.referenceSourceKind == ReferenceSwingDescriptor.SourceKind.userImported.rawValue)
+        #expect(session.referenceDisplayName == "Coach example")
+        #expect(session.referenceGolferName == "Sam Coach")
+        #expect(session.referenceAllowedUse == ReferenceAllowedUse.privateAnalysisOnly.rawValue)
+        #expect(session.referenceRightsStatus == ReferenceRightsStatus.unverified.rawValue)
+        #expect(session.referenceLicenseName == nil)
+        #expect(session.referenceSourceURL == nil)
+        #expect(ReferenceSwingDescriptorFactory.make(from: session)?.isDistributionReady == false)
+    }
+
+    @Test("Repository rejects an unnamed private reference")
+    func rejectsUnnamedPrivateReference() throws {
+        let container = try SwingPersistence.makeContainer(isStoredInMemoryOnly: true)
+        let repository = SwingSessionRepository(context: container.mainContext)
+
+        #expect(throws: SwingSessionRepositoryError.self) {
+            try repository.create(
+                title: "Fallback title must not bypass validation",
+                videoRelativePath: "reference.mov",
+                saveTarget: .privateReference(PrivateReferenceInput(displayName: " \n "))
+            )
+        }
+        #expect(try repository.fetchAll().isEmpty)
+    }
+
+    @Test("Review subjects retain private-reference provenance")
+    func privateReferenceReviewSubject() {
+        let session = SwingSession(
+            title: "Coach model",
+            videoRelativePath: "coach.mov"
+        )
+        session.apply(saveTarget: .privateReference(PrivateReferenceInput(
+            displayName: "Coach model"
+        )))
+
+        let subject = AnalysisReviewSubject(session: session)
+
+        #expect(subject.reviewLabel == "Private reference")
+        #expect(subject.comparisonPaneTitle == "PRIVATE REFERENCE")
+        #expect(subject.displayName == "Coach model")
+    }
+
+    @Test("New personal sessions are explicit while legacy nil remains personal")
+    func personalOriginCompatibility() throws {
+        let legacy = SwingSession(title: "Legacy", videoRelativePath: "legacy.mov")
+        #expect(legacy.origin == nil)
+        #expect(legacy.sessionOrigin == .personal)
+
+        let container = try SwingPersistence.makeContainer(isStoredInMemoryOnly: true)
+        let created = try SwingSessionRepository(context: container.mainContext).create(
+            title: "New",
+            videoRelativePath: "new.mov"
+        )
+        #expect(created.origin == SwingSessionOrigin.personal.rawValue)
+        #expect(created.isPersonalSwing)
+    }
+
     @Test("Launch uses an in-memory store if the persistent store cannot open")
     func launchStoreFallback() throws {
         enum PersistentStoreError: Error {

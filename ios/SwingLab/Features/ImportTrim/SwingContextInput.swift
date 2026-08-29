@@ -77,14 +77,17 @@ public struct SwingContextInput: Equatable, Sendable {
     public var cameraAngle: SwingCameraAngle
     public var handedness: SwingHandedness
     public var club: SwingClubInput
+    public var saveTarget: AnalysisSaveTarget
 
     public init(
         cameraAngle: SwingCameraAngle = .downTheLine,
         handedness: SwingHandedness = .right,
-        club: SwingClubInput = .driver
+        club: SwingClubInput = .driver,
+        saveTarget: AnalysisSaveTarget = .personalSwing
     ) {
         self.cameraAngle = cameraAngle
         self.handedness = handedness
         self.club = club
+        self.saveTarget = saveTarget
     }
 }

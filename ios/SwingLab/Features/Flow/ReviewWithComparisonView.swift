@@ -1,9 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Adds a user-owned reference picker around the core review screen.
-/// Licensed instructor or professional references can use the same
-/// `ReferenceSwing` boundary when distribution rights are available.
+/// Adds a rights-aware reference picker around the core review screen.
 struct ReviewWithComparisonView: View {
     let payload: AnalysisReviewPayload
 
@@ -16,16 +14,16 @@ struct ReviewWithComparisonView: View {
     @State private var failure: ComparisonLoadFailure?
     @State private var comparisonFindingID: String?
 
-    private var candidates: [SwingSession] {
-        sessions
-            .filter {
-                $0.id != payload.sessionID
-                    && $0.analysisStatus == .complete
-                    && $0.analysisJSON != nil
-            }
-            .sorted {
-                compatibilityScore(for: $0) > compatibilityScore(for: $1)
-            }
+    private var privateReferenceCandidates: [ComparisonCandidate] {
+        sortedCandidates(
+            sessions.filter { $0.isPrivateReference }
+        )
+    }
+
+    private var bestSwingCandidates: [ComparisonCandidate] {
+        sortedCandidates(
+            sessions.filter { $0.isPersonalSwing }
+        )
     }
 
     var body: some View {
@@ -33,6 +31,7 @@ struct ReviewWithComparisonView: View {
             video: payload.video,
             analysis: payload.analysis,
             clubName: payload.clubName,
+            subjectLabel: payload.subject.reviewLabel,
             onCompare: { findingID in
                 comparisonFindingID = findingID
                 isShowingReferencePicker = true
@@ -48,7 +47,8 @@ struct ReviewWithComparisonView: View {
                 userVideo: payload.video,
                 userAnalysis: payload.analysis,
                 reference: reference,
-                initialFindingID: comparisonFindingID
+                initialFindingID: comparisonFindingID,
+                primaryPaneTitle: payload.subject.comparisonPaneTitle
             )
         }
         .overlay {
@@ -83,41 +83,39 @@ struct ReviewWithComparisonView: View {
     private var referencePicker: some View {
         NavigationStack {
             Group {
-                if candidates.isEmpty {
+                if privateReferenceCandidates.isEmpty && bestSwingCandidates.isEmpty {
                     ContentUnavailableView {
                         Label("Analyze one more swing", systemImage: "rectangle.split.2x1")
                     } description: {
-                        Text("A second saved swing becomes your Best Swing reference. Matching camera views gives the clearest comparison.")
+                        Text("Use another saved swing or a private reference with a matching camera view for the clearest comparison.")
                     }
                 } else {
-                    List(candidates) { session in
-                        Button {
-                            loadReference(session)
-                        } label: {
-                            HStack(spacing: SwingTheme.Spacing.medium) {
-                                SessionReferenceScore(score: session.score)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(session.title)
-                                        .font(.headline)
-                                        .foregroundStyle(SwingTheme.cream)
-                                    Text(referenceDetail(for: session))
-                                        .font(.caption)
-                                        .foregroundStyle(SwingTheme.mutedText)
+                    List {
+                        if !privateReferenceCandidates.isEmpty {
+                            Section {
+                                ForEach(privateReferenceCandidates) { candidate in
+                                    candidateRow(candidate, isPrivateReference: true)
                                 }
-                                Spacer(minLength: 0)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(SwingTheme.subtleText)
+                            } header: {
+                                Text("Private references")
+                            } footer: {
+                                Text("Stored only on this iPhone. User imports are unverified and are not cleared for distribution.")
                             }
-                            .padding(.vertical, 6)
                         }
-                        .listRowBackground(SwingTheme.surface)
+
+                        if !bestSwingCandidates.isEmpty {
+                            Section("Your saved swings") {
+                                ForEach(bestSwingCandidates) { candidate in
+                                    candidateRow(candidate, isPrivateReference: false)
+                                }
+                            }
+                        }
                     }
                     .scrollContentBackground(.hidden)
                 }
             }
             .background(SwingTheme.deepCanvas)
-            .navigationTitle("Choose Best Swing")
+            .navigationTitle("Choose reference")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -128,31 +126,46 @@ struct ReviewWithComparisonView: View {
         .preferredColorScheme(.dark)
     }
 
-    private func loadReference(_ session: SwingSession) {
+    private func candidateRow(
+        _ candidate: ComparisonCandidate,
+        isPrivateReference: Bool
+    ) -> some View {
+        Button {
+            loadReference(candidate)
+        } label: {
+            HStack(spacing: SwingTheme.Spacing.medium) {
+                SessionReferenceScore(score: candidate.session.score)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(candidate.descriptor.displayLabel)
+                        .font(.headline)
+                        .foregroundStyle(SwingTheme.cream)
+                    Text(referenceDetail(
+                        for: candidate.session,
+                        isPrivateReference: isPrivateReference
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(SwingTheme.mutedText)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(SwingTheme.subtleText)
+            }
+            .padding(.vertical, 6)
+        }
+        .listRowBackground(SwingTheme.surface)
+    }
+
+    private func loadReference(_ candidate: ComparisonCandidate) {
         isShowingReferencePicker = false
         isLoadingReference = true
 
         Task { @MainActor in
             defer { isLoadingReference = false }
             do {
-                let saved = try await SavedSwingPayloadLoader.load(session: session)
-                let descriptor = ReferenceSwingDescriptor(
-                    id: session.id.uuidString,
-                    displayName: session.title,
-                    golferName: "You",
-                    sourceKind: .bestSelf,
-                    videoRelativePath: session.videoRelativePath,
-                    cameraView: session.cameraView,
-                    handedness: session.golferHandedness,
-                    club: session.selectedClub,
-                    licenseName: nil,
-                    attribution: "Your saved swing",
-                    sourceURL: nil,
-                    licenseURL: nil,
-                    analysisJSON: session.analysisJSON ?? ""
-                )
+                let saved = try await SavedSwingPayloadLoader.load(session: candidate.session)
                 reference = ReferenceSwing(
-                    descriptor: descriptor,
+                    descriptor: candidate.descriptor,
                     video: saved.video,
                     analysis: saved.analysis
                 )
@@ -162,23 +175,26 @@ struct ReviewWithComparisonView: View {
         }
     }
 
-    private func compatibilityScore(for session: SwingSession) -> Int {
+    private func sortedCandidates(_ sessions: [SwingSession]) -> [ComparisonCandidate] {
+        sessions
+            .filter { $0.id != payload.sessionID }
+            .compactMap { session in
+                ReferenceSwingDescriptorFactory.make(from: session).map {
+                    ComparisonCandidate(session: session, descriptor: $0)
+                }
+            }
+            .sorted { first, second in
+                let firstScore = compatibilityScore(for: first.descriptor)
+                let secondScore = compatibilityScore(for: second.descriptor)
+                return firstScore == secondScore
+                    ? first.session.date > second.session.date
+                    : firstScore > secondScore
+            }
+    }
+
+    private func compatibilityScore(for descriptor: ReferenceSwingDescriptor) -> Int {
         ReferenceMatcher.compatibilityScore(
-            reference: ReferenceSwingDescriptor(
-                id: session.id.uuidString,
-                displayName: session.title,
-                golferName: "You",
-                sourceKind: .bestSelf,
-                videoRelativePath: session.videoRelativePath,
-                cameraView: session.cameraView,
-                handedness: session.golferHandedness,
-                club: session.selectedClub,
-                licenseName: nil,
-                attribution: "Your saved swing",
-                sourceURL: nil,
-                licenseURL: nil,
-                analysisJSON: session.analysisJSON ?? ""
-            ),
+            reference: descriptor,
             view: payload.analysis.context.cameraView,
             handedness: payload.analysis.context.handedness,
             club: durableClub(named: payload.clubName)
@@ -189,12 +205,23 @@ struct ReviewWithComparisonView: View {
         SwingClub.allCases.first { $0.displayName == displayName } ?? .unknown
     }
 
-    private func referenceDetail(for session: SwingSession) -> String {
+    private func referenceDetail(
+        for session: SwingSession,
+        isPrivateReference: Bool
+    ) -> String {
+        let source = isPrivateReference ? "Private · unverified" : "Your saved swing"
         let viewMatch = session.cameraView == payload.analysis.context.cameraView
             ? "same view"
             : "different view"
-        return "\(session.cameraView.displayName) · \(session.selectedClub.displayName) · \(viewMatch)"
+        return "\(source) · \(session.cameraView.displayName) · \(session.selectedClub.displayName) · \(viewMatch)"
     }
+}
+
+private struct ComparisonCandidate: Identifiable {
+    let session: SwingSession
+    let descriptor: ReferenceSwingDescriptor
+
+    var id: UUID { session.id }
 }
 
 private struct SessionReferenceScore: View {

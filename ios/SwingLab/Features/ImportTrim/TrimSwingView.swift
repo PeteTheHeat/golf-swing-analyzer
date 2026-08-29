@@ -5,26 +5,32 @@ public struct TrimSwingView: View {
 
     private let onAnalyze: (ImportedVideo, TrimSelection, SwingContextInput) -> Void
     private let onChooseAnother: (() -> Void)?
+    private let backButtonAccessibilityLabel: String
     private let thumbnailGenerator = VideoThumbnailGenerator()
 
     @StateObject private var playerController: VideoPlayerController
     @State private var selection: TrimSelection
     @State private var context = SwingContextInput()
+    @State private var saveDestination = SaveDestination.personal
+    @State private var privateReferenceInput = PrivateReferenceInput()
     @State private var thumbnails: [VideoThumbnail] = []
     @State private var thumbnailError: String?
 
     public init(
         video: ImportedVideo,
+        initialSelection: TrimSelection? = nil,
         onAnalyze: @escaping (ImportedVideo, TrimSelection, SwingContextInput) -> Void,
-        onChooseAnother: (() -> Void)? = nil
+        onChooseAnother: (() -> Void)? = nil,
+        backButtonAccessibilityLabel: String = "Choose another video"
     ) {
         self.video = video
         self.onAnalyze = onAnalyze
         self.onChooseAnother = onChooseAnother
+        self.backButtonAccessibilityLabel = backButtonAccessibilityLabel
         self._playerController = StateObject(
             wrappedValue: VideoPlayerController(video: video)
         )
-        self._selection = State(initialValue: TrimSelection(video: video))
+        self._selection = State(initialValue: initialSelection ?? TrimSelection(video: video))
     }
 
     public var body: some View {
@@ -52,6 +58,12 @@ public struct TrimSwingView: View {
         .onChange(of: selection) { _, updatedSelection in
             playerController.setPlaybackRange(updatedSelection, seekIfOutsideRange: false)
         }
+        .onChange(of: saveDestination) { _, _ in
+            updateSaveTarget()
+        }
+        .onChange(of: privateReferenceInput) { _, _ in
+            updateSaveTarget()
+        }
         .onDisappear {
             playerController.pause()
         }
@@ -67,7 +79,7 @@ public struct TrimSwingView: View {
                         .background(Color.white.opacity(0.08), in: Circle())
                 }
                 .foregroundStyle(.white)
-                .accessibilityLabel("Choose another video")
+                .accessibilityLabel(backButtonAccessibilityLabel)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -279,6 +291,56 @@ public struct TrimSwingView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
+                fieldLabel("SAVE AS")
+                Picker("Save as", selection: $saveDestination) {
+                    ForEach(SaveDestination.allCases) { destination in
+                        Text(destination.title).tag(destination)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                if saveDestination == .privateReference {
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextField(
+                            "Reference name (required)",
+                            text: $privateReferenceInput.displayName
+                        )
+                        .textInputAutocapitalization(.words)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(
+                            Color.white.opacity(0.075),
+                            in: RoundedRectangle(cornerRadius: 12)
+                        )
+
+                        TextField(
+                            "Golfer name (optional)",
+                            text: $privateReferenceInput.golferName
+                        )
+                        .textInputAutocapitalization(.words)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(
+                            Color.white.opacity(0.075),
+                            in: RoundedRectangle(cornerRadius: 12)
+                        )
+
+                        Label {
+                            Text("Private and unverified. This footage stays on this iPhone and is not cleared for distribution.")
+                        } icon: {
+                            Image(systemName: "lock.shield.fill")
+                                .foregroundStyle(Color(red: 0.39, green: 0.82, blue: 0.64))
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.62))
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .animation(.easeOut(duration: 0.18), value: saveDestination)
+
+            VStack(alignment: .leading, spacing: 8) {
                 fieldLabel("CAMERA VIEW")
                 Picker("Camera view", selection: $context.cameraAngle) {
                     ForEach(SwingCameraAngle.allCases) { angle in
@@ -333,11 +395,12 @@ public struct TrimSwingView: View {
     private var analyzeButton: some View {
         Button {
             playerController.pause()
+            context.saveTarget = configuredSaveTarget
             onAnalyze(video, selection, context)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "sparkles")
-                Text("Analyze my swing")
+                Text(analyzeButtonTitle)
                 Spacer()
                 Image(systemName: "arrow.right")
             }
@@ -350,9 +413,40 @@ public struct TrimSwingView: View {
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous)
             )
         }
-        .disabled(!selection.isValid)
-        .opacity(selection.isValid ? 1 : 0.45)
-        .accessibilityHint("Starts pose and swing analysis for the selected clip")
+        .disabled(!canAnalyze)
+        .opacity(canAnalyze ? 1 : 0.45)
+        .accessibilityHint(analyzeButtonHint)
+    }
+
+    private var canAnalyze: Bool {
+        selection.isValid && configuredSaveTarget.isValidForAnalysis
+    }
+
+    private var analyzeButtonTitle: String {
+        saveDestination == .privateReference
+            ? "Analyze private reference"
+            : "Analyze my swing"
+    }
+
+    private var analyzeButtonHint: String {
+        if saveDestination == .privateReference,
+           !configuredSaveTarget.isValidForAnalysis {
+            return "Enter a reference name before starting analysis"
+        }
+        return "Starts pose and swing analysis for the selected clip"
+    }
+
+    private func updateSaveTarget() {
+        context.saveTarget = configuredSaveTarget
+    }
+
+    private var configuredSaveTarget: AnalysisSaveTarget {
+        switch saveDestination {
+        case .personal:
+            .personalSwing
+        case .privateReference:
+            .privateReference(privateReferenceInput)
+        }
     }
 
     private func frameStepButton(direction: Int) -> some View {
@@ -394,5 +488,23 @@ public struct TrimSwingView: View {
         let minutes = Int(safeSeconds) / 60
         let remainingSeconds = safeSeconds - (Double(minutes) * 60)
         return String(format: "%d:%04.1f", minutes, remainingSeconds)
+    }
+}
+
+private extension TrimSwingView {
+    enum SaveDestination: String, CaseIterable, Identifiable {
+        case personal
+        case privateReference
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .personal:
+                "My swing"
+            case .privateReference:
+                "Private reference"
+            }
+        }
     }
 }

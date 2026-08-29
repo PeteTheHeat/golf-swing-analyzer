@@ -12,7 +12,7 @@ struct SavedSwingReviewView: View {
             case .loading:
                 statusView(
                     icon: "figure.golf",
-                    title: "Opening your swing",
+                    title: openingTitle,
                     detail: "Loading the saved video and analysis…",
                     showsRetry: false
                 )
@@ -31,6 +31,19 @@ struct SavedSwingReviewView: View {
         }
         .task(id: session.id) {
             await loadSession()
+        }
+    }
+
+    private var openingTitle: String {
+        switch session.sessionOrigin {
+        case .personal:
+            "Opening your swing"
+        case .reference where session.isPrivateReference:
+            "Opening private reference"
+        case .reference:
+            "Opening reference"
+        case .unknown:
+            "Opening unverified reference"
         }
     }
 
@@ -124,7 +137,8 @@ enum SavedSwingPayloadLoader {
             sessionID: session.id,
             video: video,
             analysis: analysis,
-            clubName: session.selectedClub.displayName
+            clubName: session.selectedClub.displayName,
+            subject: AnalysisReviewSubject(session: session)
         )
     }
 }

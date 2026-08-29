@@ -6,6 +6,72 @@ struct AnalysisReviewPayload {
     let video: ImportedVideo
     let analysis: SwingAnalysisResult
     let clubName: String
+    let subject: AnalysisReviewSubject
+}
+
+/// Keeps the reviewed video's provenance attached to every screen that can
+/// present or compare it. In particular, a user-imported reference must never
+/// be relabeled as the golfer's own swing.
+enum AnalysisReviewSubject: Equatable, Sendable {
+    case personal
+    case privateReference(String)
+    case reference(String)
+    case unknown(String)
+
+    init(session: SwingSession) {
+        let label = Self.nonblank(session.referenceDisplayName)
+            ?? Self.nonblank(session.title)
+            ?? "Untitled reference"
+
+        switch session.sessionOrigin {
+        case .personal:
+            self = .personal
+        case .reference where session.isPrivateReference:
+            self = .privateReference(label)
+        case .reference:
+            if ReferenceSwingDescriptorFactory.make(from: session)?.isDistributionReady == true {
+                self = .reference(label)
+            } else {
+                self = .unknown(label)
+            }
+        case .unknown:
+            self = .unknown(label)
+        }
+    }
+
+    var reviewLabel: String {
+        switch self {
+        case .personal:
+            "Your swing"
+        case .privateReference:
+            "Private reference"
+        case .reference:
+            "Reference"
+        case .unknown:
+            "Unverified reference"
+        }
+    }
+
+    var comparisonPaneTitle: String {
+        reviewLabel.uppercased()
+    }
+
+    var displayName: String? {
+        switch self {
+        case .personal:
+            nil
+        case let .privateReference(name),
+             let .reference(name),
+             let .unknown(name):
+            name
+        }
+    }
+
+    private static func nonblank(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 struct AnalysisFlowFailure: Identifiable {
@@ -24,6 +90,7 @@ final class AnalysisFlowModel: ObservableObject {
         message: "Preparing video"
     )
     @Published private(set) var reviewPayload: AnalysisReviewPayload?
+    @Published private(set) var activeSubject: AnalysisReviewSubject = .personal
     @Published var isShowingReview = false
     @Published var failure: AnalysisFlowFailure?
 
@@ -46,6 +113,13 @@ final class AnalysisFlowModel: ObservableObject {
             )
             return
         }
+        guard input.saveTarget.isValidForAnalysis else {
+            failure = AnalysisFlowFailure(
+                title: "Add a reference name",
+                message: "Give this private reference a name before starting analysis."
+            )
+            return
+        }
 
         let relativePath = video.fileURL.lastPathComponent
         guard isSafeRelativeFilename(relativePath) else {
@@ -60,14 +134,19 @@ final class AnalysisFlowModel: ObservableObject {
         let session: SwingSession
         do {
             session = try repository.create(
-                title: sessionTitle(video: video, club: input.club),
+                title: sessionTitle(
+                    video: video,
+                    club: input.club,
+                    saveTarget: input.saveTarget
+                ),
                 videoRelativePath: relativePath,
                 cameraView: SwingCameraView(input.cameraAngle),
                 handedness: GolferHandedness(input.handedness),
                 club: SwingClub(input.club),
                 rangeStart: selection.start,
                 rangeEnd: selection.end,
-                status: .analyzing
+                status: .analyzing,
+                saveTarget: input.saveTarget
             )
         } catch {
             failure = AnalysisFlowFailure(
@@ -78,6 +157,7 @@ final class AnalysisFlowModel: ObservableObject {
         }
 
         ImportedMediaOwnership.retainForSession(video.fileURL)
+        activeSubject = AnalysisReviewSubject(session: session)
 
         let analysisContext = SwingAnalysisContext(
             cameraView: SwingCameraView(input.cameraAngle),
@@ -119,7 +199,8 @@ final class AnalysisFlowModel: ObservableObject {
                     sessionID: session.id,
                     video: video,
                     analysis: result,
-                    clubName: input.club.title
+                    clubName: input.club.title,
+                    subject: activeSubject
                 )
                 finishAnalysis()
                 isShowingReview = true
@@ -181,7 +262,19 @@ final class AnalysisFlowModel: ObservableObject {
         isAnalyzing = false
     }
 
-    private func sessionTitle(video: ImportedVideo, club: SwingClubInput) -> String {
+    private func sessionTitle(
+        video: ImportedVideo,
+        club: SwingClubInput,
+        saveTarget: AnalysisSaveTarget
+    ) -> String {
+        if case let .privateReference(metadata) = saveTarget {
+            let referenceTitle = metadata.displayName
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !referenceTitle.isEmpty {
+                return referenceTitle
+            }
+        }
+
         let filename = video.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let title = URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent
         return title.isEmpty ? "\(club.title) swing" : title

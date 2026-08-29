@@ -4,6 +4,7 @@ struct SwingReviewView: View {
     let video: ImportedVideo
     let analysis: SwingAnalysisResult
     let clubName: String
+    let subjectLabel: String
     var onCompare: ((String) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
@@ -15,11 +16,13 @@ struct SwingReviewView: View {
         video: ImportedVideo,
         analysis: SwingAnalysisResult,
         clubName: String,
+        subjectLabel: String = "Your swing",
         onCompare: ((String) -> Void)? = nil
     ) {
         self.video = video
         self.analysis = analysis
         self.clubName = clubName
+        self.subjectLabel = subjectLabel
         self.onCompare = onCompare
         _playerController = StateObject(wrappedValue: VideoPlayerController(video: video))
         _selectedFindingID = State(initialValue: analysis.findings.first?.id)
@@ -118,6 +121,7 @@ struct SwingReviewView: View {
 
                 VStack(alignment: .trailing, spacing: SwingTheme.Spacing.small) {
                     SwingScoreRing(score: Double(analysis.score.value))
+                    SwingPill(text: subjectLabel, tint: .black.opacity(0.58))
                     SwingPill(text: clubName, tint: .black.opacity(0.58))
                 }
             }
