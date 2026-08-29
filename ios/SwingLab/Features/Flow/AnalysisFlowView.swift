@@ -127,7 +127,7 @@ private struct AnalysisProcessingView: View {
 
     private var progressDetail: String {
         guard snapshot.processedFrameCount > 0 else {
-            return "Keep SwingLab open while on-device analysis runs."
+            return "Keep Replay Caddie open while on-device analysis runs."
         }
         return "\(snapshot.processedFrameCount) frames checked on this iPhone"
     }

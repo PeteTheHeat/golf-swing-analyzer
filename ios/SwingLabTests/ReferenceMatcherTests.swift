@@ -160,6 +160,35 @@ final class ReferenceMatcherTests: XCTestCase {
         XCTAssertTrue(entries[0].descriptor.isDistributionReady)
     }
 
+    func testBundledReferenceMetadataRequiresKnownClubToMatch() {
+        let entry = validBundledReference()
+
+        XCTAssertTrue(BundledReferenceCatalog.analysisMetadataMatches(
+            SwingAnalysisContext(
+                cameraView: .downTheLine,
+                handedness: .right,
+                club: .driver
+            ),
+            entry: entry
+        ))
+        XCTAssertTrue(BundledReferenceCatalog.analysisMetadataMatches(
+            SwingAnalysisContext(
+                cameraView: .downTheLine,
+                handedness: .right,
+                club: .unknown
+            ),
+            entry: entry
+        ))
+        XCTAssertFalse(BundledReferenceCatalog.analysisMetadataMatches(
+            SwingAnalysisContext(
+                cameraView: .downTheLine,
+                handedness: .right,
+                club: .wedge
+            ),
+            entry: entry
+        ))
+    }
+
     func testBundledCatalogRejectsUnverifiedRights() throws {
         var entry = validBundledReference()
         entry.rightsStatus = .unverified

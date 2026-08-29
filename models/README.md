@@ -1,6 +1,6 @@
 # Model cache
 
-SwingLab downloads the Google MediaPipe Pose Landmarker Full task file on the
+The desktop analyzer downloads the Google MediaPipe Pose Landmarker Full task file on the
 first analysis run. The model is stored in the user cache by default and is not
 committed to this repository.
 

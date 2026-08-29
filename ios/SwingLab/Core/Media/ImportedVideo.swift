@@ -2,7 +2,7 @@ import AVFoundation
 import CoreGraphics
 import Foundation
 
-/// A validated video that has been copied into SwingLab's private app storage.
+/// A validated video that has been copied into Replay Caddie's private app storage.
 ///
 /// This type deliberately contains no persistence-model references. Feature and
 /// persistence layers can pass it across their boundary without retaining a
@@ -88,7 +88,7 @@ public enum VideoImportError: Error, Equatable, LocalizedError, Sendable {
         case .noFileWasProvided:
             "The selected item did not contain a video file."
         case .fileIsNotReadable:
-            "SwingLab could not read this video."
+            "Replay Caddie could not read this video."
         case .fileIsEmpty:
             "The selected video is empty."
         case .unsupportedVideo:
@@ -96,15 +96,15 @@ public enum VideoImportError: Error, Equatable, LocalizedError, Sendable {
         case .noVideoTrack:
             "The selected file does not contain a video track."
         case .invalidDuration:
-            "SwingLab could not determine the video's duration."
+            "Replay Caddie could not determine the video's duration."
         case .storageUnavailable:
-            "SwingLab could not open its private video storage."
+            "Replay Caddie could not open its private video storage."
         case .copyFailed:
-            "SwingLab could not save a private copy of this video."
+            "Replay Caddie could not save a private copy of this video."
         case .metadataLoadFailed:
-            "SwingLab could not inspect this video."
+            "Replay Caddie could not inspect this video."
         case .thumbnailGenerationFailed:
-            "SwingLab could not create preview frames for this video."
+            "Replay Caddie could not create preview frames for this video."
         }
     }
 

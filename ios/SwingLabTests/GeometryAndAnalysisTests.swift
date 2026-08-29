@@ -184,7 +184,11 @@ final class GeometryAndAnalysisTests: XCTestCase {
     func testScoreIsTransparentAndCodable() throws {
         let result = try SwingAnalysisEngine.analyze(
             poseTrack: syntheticSwingTrack(),
-            context: SwingAnalysisContext(cameraView: .downTheLine, handedness: .right)
+            context: SwingAnalysisContext(
+                cameraView: .downTheLine,
+                handedness: .right,
+                club: .driver
+            )
         )
         let earned = result.score.components.map(\.earnedPoints).reduce(0, +)
         let available = result.score.components.map(\.availablePoints).reduce(0, +)
@@ -197,6 +201,25 @@ final class GeometryAndAnalysisTests: XCTestCase {
         let encoded = try JSONEncoder().encode(result)
         let decoded = try JSONDecoder().decode(SwingAnalysisResult.self, from: encoded)
         XCTAssertEqual(decoded, result)
+        XCTAssertEqual(decoded.context.club, .driver)
+    }
+
+    func testLegacyAnalysisContextWithoutClubDecodesAsUnknown() throws {
+        let context = SwingAnalysisContext(
+            cameraView: .downTheLine,
+            handedness: .right,
+            club: .driver
+        )
+        let encoded = try JSONEncoder().encode(context)
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        object.removeValue(forKey: "club")
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+
+        let decoded = try JSONDecoder().decode(SwingAnalysisContext.self, from: legacyData)
+
+        XCTAssertEqual(decoded.club, .unknown)
     }
 
     func testPrimaryEvidencePrefersTheFindingsNamedPhaseOverItsBaseline() throws {
@@ -302,12 +325,20 @@ final class GeometryAndAnalysisTests: XCTestCase {
     func testLegacyAnalysisWithoutNewVisualizationFieldsStillDecodes() throws {
         let result = try SwingAnalysisEngine.analyze(
             poseTrack: syntheticSwingTrack(),
-            context: SwingAnalysisContext(cameraView: .downTheLine, handedness: .right)
+            context: SwingAnalysisContext(
+                cameraView: .downTheLine,
+                handedness: .right,
+                club: .driver
+            )
         )
         let encoded = try JSONEncoder().encode(result)
         var object = try XCTUnwrap(
             JSONSerialization.jsonObject(with: encoded) as? [String: Any]
         )
+
+        var context = try XCTUnwrap(object["context"] as? [String: Any])
+        context.removeValue(forKey: "club")
+        object["context"] = context
 
         var metrics = try XCTUnwrap(object["metrics"] as? [String: Any])
         var movement = try XCTUnwrap(metrics["movement"] as? [String: Any])
@@ -336,6 +367,7 @@ final class GeometryAndAnalysisTests: XCTestCase {
 
         let legacyData = try JSONSerialization.data(withJSONObject: object)
         let decoded = try JSONDecoder().decode(SwingAnalysisResult.self, from: legacyData)
+        XCTAssertEqual(decoded.context.club, .unknown)
         XCTAssertNil(decoded.metrics.movement.handPath.matchedBackswingSeconds)
         XCTAssertNil(decoded.metrics.movement.handPath.takeawaySampleSeconds)
         XCTAssertNil(decoded.metrics.movement.handPath.transitionDownswingSeconds)
@@ -476,6 +508,143 @@ final class GeometryAndAnalysisTests: XCTestCase {
                 evidenceTime: evidenceTime,
                 tolerance: 0.05
             )
+        )
+    }
+
+    func testFindingCardEvidenceRevealRespectsReduceMotionAndNamesTheFrame() {
+        XCTAssertTrue(
+            ReviewEvidenceRevealPolicy.shouldAnimate(
+                accessibilityReduceMotion: false
+            )
+        )
+        XCTAssertFalse(
+            ReviewEvidenceRevealPolicy.shouldAnimate(
+                accessibilityReduceMotion: true
+            )
+        )
+        XCTAssertEqual(
+            ReviewEvidenceRevealPolicy.accessibilityAnnouncement(
+                findingTitle: "Hands move sharply inward"
+            ),
+            "Showing Hands move sharply inward evidence frame."
+        )
+    }
+
+    func testComparisonFrameStepperUsesNativeFrameDurationAndClampsBounds() {
+        XCTAssertEqual(
+            ComparisonFrameStepper.timestamp(
+                base: 10,
+                frameDuration: 1.0 / 30,
+                offset: 3,
+                rangeStart: 9,
+                rangeEnd: 11
+            ),
+            10.1,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            ComparisonFrameStepper.timestamp(
+                base: 20,
+                frameDuration: 1.0 / 60,
+                offset: 3,
+                rangeStart: 19,
+                rangeEnd: 21
+            ),
+            20.05,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            ComparisonFrameStepper.timestamp(
+                base: 10,
+                frameDuration: 1.0 / 30,
+                offset: -100,
+                rangeStart: 9.8,
+                rangeEnd: 10.2
+            ),
+            9.8,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(ComparisonFrameStepper.clampedOffset(-100), -12)
+        XCTAssertEqual(ComparisonFrameStepper.clampedOffset(100), 12)
+    }
+
+    func testComparisonFrameStepperAllowsAFrameOnTheSelectionBoundary() {
+        XCTAssertTrue(
+            ComparisonFrameStepper.canStep(
+                base: 1.1,
+                frameDuration: 0.1,
+                offset: 0,
+                direction: -1,
+                rangeStart: 1,
+                rangeEnd: 2
+            )
+        )
+        XCTAssertFalse(
+            ComparisonFrameStepper.canStep(
+                base: 1,
+                frameDuration: 0.1,
+                offset: 0,
+                direction: -1,
+                rangeStart: 1,
+                rangeEnd: 2
+            )
+        )
+        XCTAssertFalse(
+            ComparisonFrameStepper.canStep(
+                base: 1.5,
+                frameDuration: 0.1,
+                offset: 12,
+                direction: 1,
+                rangeStart: 1,
+                rangeEnd: 3
+            )
+        )
+    }
+
+    func testComparisonFrameStepperUsesSafeFallbacksForInvalidMediaMetadata() {
+        XCTAssertEqual(
+            ComparisonFrameStepper.timestamp(
+                base: .nan,
+                frameDuration: 1.0 / 30,
+                offset: 1,
+                rangeStart: 4,
+                rangeEnd: 8
+            ),
+            4
+        )
+        XCTAssertEqual(
+            ComparisonFrameStepper.timestamp(
+                base: 12,
+                frameDuration: 0,
+                offset: -1,
+                rangeStart: 4,
+                rangeEnd: 8
+            ),
+            8
+        )
+        XCTAssertEqual(
+            ComparisonFrameStepper.timestamp(
+                base: .infinity,
+                frameDuration: 1.0 / 30,
+                offset: 1,
+                rangeStart: 8,
+                rangeEnd: 4
+            ),
+            0
+        )
+    }
+
+    func testComparisonFrameStepperLabelsVisualAndSpokenOffsets() {
+        XCTAssertEqual(ComparisonFrameStepper.label(for: 0), "MATCHED FRAME")
+        XCTAssertEqual(ComparisonFrameStepper.label(for: -1), "1 BEFORE")
+        XCTAssertEqual(ComparisonFrameStepper.label(for: 99), "12 AFTER")
+        XCTAssertEqual(
+            ComparisonFrameStepper.accessibilityValue(for: -1),
+            "1 frame before the matched frame"
+        )
+        XCTAssertEqual(
+            ComparisonFrameStepper.accessibilityValue(for: 2),
+            "2 frames after the matched frame"
         )
     }
 

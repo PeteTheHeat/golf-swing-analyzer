@@ -1,3 +1,4 @@
+import Accessibility
 import SwiftUI
 
 struct SwingReviewView: View {
@@ -8,6 +9,7 @@ struct SwingReviewView: View {
     var onCompare: ((String) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @StateObject private var playerController: VideoPlayerController
     @State private var selectedFindingID: String?
     @State private var showsAnalysis = true
@@ -97,14 +99,20 @@ struct SwingReviewView: View {
         ZStack {
             SwingTheme.deepCanvas.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 0) {
-                    playerStage
-                    controlDeck
-                    findingsSection
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        playerStage
+                            .id(ReviewScrollAnchor.evidence)
+                            .accessibilityIdentifier("swing-review-evidence")
+                        controlDeck
+                        findingsSection { finding in
+                            revealEvidence(for: finding, using: scrollProxy)
+                        }
+                    }
                 }
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
@@ -281,7 +289,9 @@ struct SwingReviewView: View {
         .background(SwingTheme.canvas)
     }
 
-    private var findingsSection: some View {
+    private func findingsSection(
+        onSelectFinding: @escaping (SwingFinding) -> Void
+    ) -> some View {
         VStack(alignment: .leading, spacing: SwingTheme.Spacing.medium) {
             scoreBreakdownSection
 
@@ -293,7 +303,7 @@ struct SwingReviewView: View {
 
             ForEach(analysis.findings) { finding in
                 Button {
-                    select(finding)
+                    onSelectFinding(finding)
                 } label: {
                     AnalysisFindingCard(
                         finding: finding,
@@ -301,6 +311,10 @@ struct SwingReviewView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("swing-finding-\(finding.id)")
+                .accessibilityHint(
+                    "Freezes the video at this evidence frame and returns to the video."
+                )
             }
 
             if let onCompare, let selectedFinding {
@@ -375,6 +389,30 @@ struct SwingReviewView: View {
         seek(to: finding)
     }
 
+    private func revealEvidence(
+        for finding: SwingFinding,
+        using scrollProxy: ScrollViewProxy
+    ) {
+        select(finding)
+
+        let revealPlayer = {
+            scrollProxy.scrollTo(ReviewScrollAnchor.evidence, anchor: .top)
+        }
+        if ReviewEvidenceRevealPolicy.shouldAnimate(
+            accessibilityReduceMotion: accessibilityReduceMotion
+        ) {
+            withAnimation(.easeInOut(duration: 0.28), revealPlayer)
+        } else {
+            revealPlayer()
+        }
+
+        AccessibilityNotification.PageScrolled(
+            ReviewEvidenceRevealPolicy.accessibilityAnnouncement(
+                findingTitle: finding.title
+            )
+        ).post()
+    }
+
     private func seek(to finding: SwingFinding) {
         playerController.pause()
         playerController.seek(to: evidenceTime(for: finding))
@@ -422,6 +460,20 @@ struct SwingReviewView: View {
             start: track.selectedRangeStartSeconds,
             end: track.selectedRangeStartSeconds + track.selectedRangeDurationSeconds
         )
+    }
+}
+
+private enum ReviewScrollAnchor: Hashable {
+    case evidence
+}
+
+enum ReviewEvidenceRevealPolicy {
+    static func shouldAnimate(accessibilityReduceMotion: Bool) -> Bool {
+        !accessibilityReduceMotion
+    }
+
+    static func accessibilityAnnouncement(findingTitle: String) -> String {
+        "Showing \(findingTitle) evidence frame."
     }
 }
 

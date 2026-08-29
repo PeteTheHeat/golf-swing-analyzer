@@ -192,7 +192,7 @@ struct LibraryShellView: View {
 
     private var libraryHeader: some View {
         VStack(alignment: .leading, spacing: SwingTheme.Spacing.small) {
-            Text("SWINGLAB")
+            Text("REPLAY CADDIE")
                 .font(SwingTheme.Typography.eyebrow)
                 .tracking(2.2)
                 .foregroundStyle(SwingTheme.coral)
@@ -233,7 +233,7 @@ private struct EmptyLibraryCard: View {
                         .font(SwingTheme.Typography.title)
                         .foregroundStyle(SwingTheme.cream)
 
-                    Text("Choose a video, trim it to the swing, then let SwingLab find the moments worth reviewing.")
+                    Text("Choose a video, trim it to the swing, then let Replay Caddie find the moments worth reviewing.")
                         .font(SwingTheme.Typography.body)
                         .foregroundStyle(SwingTheme.mutedText)
                 }
@@ -362,13 +362,50 @@ private struct SessionScoreBadge: View {
     }
 }
 
+struct AppReleaseIdentity: Equatable {
+    let displayName: String
+    let version: String?
+    let build: String?
+
+    init(infoDictionary: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
+        displayName = Self.nonblankString(
+            infoDictionary["CFBundleDisplayName"]
+        ) ?? Self.nonblankString(
+            infoDictionary["CFBundleName"]
+        ) ?? "Replay Caddie"
+        version = Self.nonblankString(infoDictionary["CFBundleShortVersionString"])
+        build = Self.nonblankString(infoDictionary["CFBundleVersion"])
+    }
+
+    var footerText: String {
+        switch (version, build) {
+        case let (.some(version), .some(build)):
+            "\(displayName) \(version) (\(build))"
+        case let (.some(version), .none):
+            "\(displayName) \(version)"
+        case let (.none, .some(build)):
+            "\(displayName) build \(build)"
+        case (.none, .none):
+            displayName
+        }
+    }
+
+    private static func nonblankString(_ value: Any?) -> String? {
+        guard let string = value as? String else { return nil }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
 struct SettingsShellView: View {
+    private let releaseIdentity = AppReleaseIdentity()
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: SwingTheme.Spacing.large) {
                     SectionHeading(
-                        eyebrow: "SwingLab",
+                        eyebrow: releaseIdentity.displayName,
                         title: "Settings"
                     )
 
@@ -394,7 +431,7 @@ struct SettingsShellView: View {
                         }
                     }
 
-                    Text("SwingLab 0.1")
+                    Text(releaseIdentity.footerText)
                         .font(SwingTheme.Typography.caption)
                         .foregroundStyle(SwingTheme.subtleText)
                         .frame(maxWidth: .infinity)

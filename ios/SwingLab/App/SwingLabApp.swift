@@ -22,7 +22,7 @@ struct SwingLabApp: App {
                     }
             } else {
                 ContentUnavailableView(
-                    "SwingLab Can't Start",
+                    "Replay Caddie Can't Start",
                     systemImage: "externaldrive.badge.exclamationmark",
                     description: Text("Storage is unavailable. Restart the app or free device storage, then try again.")
                 )
@@ -131,6 +131,7 @@ private actor DeviceAnalysisHarness {
                         context: SwingAnalysisContext(
                             cameraView: .downTheLine,
                             handedness: .right,
+                            club: .driver,
                             sampleRate: 15,
                             minimumJointConfidence: 0.30
                         )

@@ -11,6 +11,7 @@ struct SwingComparisonView: View {
     @StateObject private var userPlayer: VideoPlayerController
     @StateObject private var referencePlayer: VideoPlayerController
     @State private var findingIndex: Int
+    @State private var frameOffset = 0
     @State private var showsOverlays = true
     @State private var showsReferenceRights = false
 
@@ -88,7 +89,11 @@ struct SwingComparisonView: View {
             )
             seekToFinding()
         }
-        .onChange(of: findingIndex) { _, _ in seekToFinding() }
+        .onChange(of: findingIndex) { _, _ in
+            frameOffset = 0
+            seekToFinding()
+        }
+        .onChange(of: frameOffset) { _, _ in seekToFinding() }
         .sheet(isPresented: $showsReferenceRights) {
             referenceRightsSheet
                 .presentationDetents([.medium, .large])
@@ -216,36 +221,98 @@ struct SwingComparisonView: View {
     }
 
     private var comparisonControls: some View {
-        HStack(spacing: SwingTheme.Spacing.large) {
-            Button {
-                findingIndex = max(0, findingIndex - 1)
-            } label: {
-                Image(systemName: "chevron.left")
-                    .frame(width: 44, height: 44)
-            }
-            .disabled(findingIndex == 0)
+        VStack(spacing: SwingTheme.Spacing.xSmall) {
+            HStack(spacing: SwingTheme.Spacing.large) {
+                Button {
+                    findingIndex = max(0, findingIndex - 1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(findingIndex == 0)
+                .accessibilityLabel("Previous check")
 
-            VStack(spacing: 2) {
-                Text("CHECK \(min(findingIndex + 1, userAnalysis.findings.count)) OF \(userAnalysis.findings.count)")
-                    .font(SwingTheme.Typography.eyebrow)
-                    .tracking(1.2)
-                Text(finding?.title ?? "No comparison checks")
-                    .font(SwingTheme.Typography.headline)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
+                VStack(spacing: 2) {
+                    Text("CHECK \(min(findingIndex + 1, userAnalysis.findings.count)) OF \(userAnalysis.findings.count)")
+                        .font(SwingTheme.Typography.eyebrow)
+                        .tracking(1.2)
+                    Text(finding?.title ?? "No comparison checks")
+                        .font(SwingTheme.Typography.headline)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity)
 
-            Button {
-                findingIndex = min(max(0, userAnalysis.findings.count - 1), findingIndex + 1)
-            } label: {
-                Image(systemName: "chevron.right")
-                    .frame(width: 44, height: 44)
+                Button {
+                    findingIndex = min(
+                        max(0, userAnalysis.findings.count - 1),
+                        findingIndex + 1
+                    )
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(findingIndex >= userAnalysis.findings.count - 1)
+                .accessibilityLabel("Next check")
             }
-            .disabled(findingIndex >= userAnalysis.findings.count - 1)
+
+            HStack(spacing: SwingTheme.Spacing.medium) {
+                Button {
+                    frameOffset = ComparisonFrameStepper.clampedOffset(
+                        frameOffset - 1
+                    )
+                } label: {
+                    Image(systemName: "backward.frame.fill")
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(!canStepBackward)
+                .accessibilityLabel("Previous matched frame")
+                .accessibilityValue(
+                    ComparisonFrameStepper.accessibilityValue(for: frameOffset)
+                )
+                .accessibilityHint("Moves both videos one frame earlier")
+
+                Button {
+                    frameOffset = 0
+                } label: {
+                    Text(ComparisonFrameStepper.label(for: frameOffset))
+                        .font(SwingTheme.Typography.eyebrow.monospacedDigit())
+                        .tracking(0.8)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(
+                    frameOffset == 0
+                        ? "Matched evidence frame"
+                        : "Reset to matched evidence frame"
+                )
+                .accessibilityValue(
+                    ComparisonFrameStepper.accessibilityValue(for: frameOffset)
+                )
+                .accessibilityHint(
+                    frameOffset == 0
+                        ? "Both videos are at the matched frame"
+                        : "Returns both videos to the matched frame"
+                )
+
+                Button {
+                    frameOffset = ComparisonFrameStepper.clampedOffset(
+                        frameOffset + 1
+                    )
+                } label: {
+                    Image(systemName: "forward.frame.fill")
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(!canStepForward)
+                .accessibilityLabel("Next matched frame")
+                .accessibilityValue(
+                    ComparisonFrameStepper.accessibilityValue(for: frameOffset)
+                )
+                .accessibilityHint("Moves both videos one frame later")
+            }
         }
         .foregroundStyle(SwingTheme.cream)
         .padding(.horizontal, SwingTheme.Spacing.screen)
-        .padding(.vertical, SwingTheme.Spacing.medium)
+        .padding(.vertical, SwingTheme.Spacing.small)
         .background(SwingTheme.deepCanvas)
     }
 
@@ -288,7 +355,7 @@ struct SwingComparisonView: View {
     private var referencePaneTitle: String {
         switch reference.descriptor.sourceKind {
         case .bestSelf:
-            "BEST SWING"
+            "SAVED SWING"
         case .userImported:
             "PRIVATE REFERENCE"
         case .licensedProfessional, .instructor:
@@ -301,17 +368,84 @@ struct SwingComparisonView: View {
     }
 
     private func seekToFinding() {
-        guard let finding else { return }
-        let userTime = evidenceTime(for: finding, in: userAnalysis)
-        let referenceTime = ReferenceMatcher.alignedTime(
-            userTime: userTime,
+        guard let times = comparisonTimes(for: frameOffset) else { return }
+        userPlayer.pause()
+        referencePlayer.pause()
+        userPlayer.seek(to: times.user)
+        referencePlayer.seek(to: times.reference)
+    }
+
+    private var canStepBackward: Bool {
+        canStep(by: -1)
+    }
+
+    private var canStepForward: Bool {
+        canStep(by: 1)
+    }
+
+    private func canStep(by direction: Int) -> Bool {
+        guard let anchors = comparisonAnchors else { return false }
+        let userStart = userAnalysis.poseTrack.selectedRangeStartSeconds
+        let referenceStart = reference.analysis.poseTrack.selectedRangeStartSeconds
+        return ComparisonFrameStepper.canStep(
+            base: anchors.user,
+            frameDuration: userVideo.frameDurationSeconds,
+            offset: frameOffset,
+            direction: direction,
+            rangeStart: userStart,
+            rangeEnd: userStart + userAnalysis.poseTrack.selectedRangeDurationSeconds
+        ) && ComparisonFrameStepper.canStep(
+            base: anchors.reference,
+            frameDuration: reference.video.frameDurationSeconds,
+            offset: frameOffset,
+            direction: direction,
+            rangeStart: referenceStart,
+            rangeEnd: referenceStart
+                + reference.analysis.poseTrack.selectedRangeDurationSeconds
+        )
+    }
+
+    private var comparisonAnchors: (user: Double, reference: Double)? {
+        guard let finding else { return nil }
+        let userStart = userAnalysis.poseTrack.selectedRangeStartSeconds
+        let userBase = ComparisonFrameStepper.timestamp(
+            base: evidenceTime(for: finding, in: userAnalysis),
+            frameDuration: userVideo.frameDurationSeconds,
+            offset: 0,
+            rangeStart: userStart,
+            rangeEnd: userStart + userAnalysis.poseTrack.selectedRangeDurationSeconds
+        )
+        let referenceBase = ReferenceMatcher.alignedTime(
+            userTime: userBase,
             userEvents: userAnalysis.events,
             referenceEvents: reference.analysis.events
         )
-        userPlayer.pause()
-        referencePlayer.pause()
-        userPlayer.seek(to: userTime)
-        referencePlayer.seek(to: referenceTime)
+        return (userBase, referenceBase)
+    }
+
+    private func comparisonTimes(
+        for offset: Int
+    ) -> (user: Double, reference: Double)? {
+        guard let anchors = comparisonAnchors else { return nil }
+        let userStart = userAnalysis.poseTrack.selectedRangeStartSeconds
+        let referenceStart = reference.analysis.poseTrack.selectedRangeStartSeconds
+        return (
+            ComparisonFrameStepper.timestamp(
+                base: anchors.user,
+                frameDuration: userVideo.frameDurationSeconds,
+                offset: offset,
+                rangeStart: userStart,
+                rangeEnd: userStart + userAnalysis.poseTrack.selectedRangeDurationSeconds
+            ),
+            ComparisonFrameStepper.timestamp(
+                base: anchors.reference,
+                frameDuration: reference.video.frameDurationSeconds,
+                offset: offset,
+                rangeStart: referenceStart,
+                rangeEnd: referenceStart
+                    + reference.analysis.poseTrack.selectedRangeDurationSeconds
+            )
+        )
     }
 
     private func evidenceTime(for finding: SwingFinding, in result: SwingAnalysisResult) -> Double {
@@ -451,5 +585,82 @@ struct SwingComparisonView: View {
             start: track.selectedRangeStartSeconds,
             end: track.selectedRangeStartSeconds + track.selectedRangeDurationSeconds
         )
+    }
+}
+
+enum ComparisonFrameStepper {
+    private static let maximumOffset = 12
+
+    static func clampedOffset(_ offset: Int) -> Int {
+        min(maximumOffset, max(-maximumOffset, offset))
+    }
+
+    static func timestamp(
+        base: Double,
+        frameDuration: Double,
+        offset: Int,
+        rangeStart: Double,
+        rangeEnd: Double
+    ) -> Double {
+        guard rangeStart.isFinite,
+              rangeEnd.isFinite,
+              rangeEnd >= rangeStart else {
+            return base.isFinite ? base : 0
+        }
+        guard base.isFinite else { return rangeStart }
+        let boundedBase = min(rangeEnd, max(rangeStart, base))
+        guard frameDuration.isFinite, frameDuration > 0 else {
+            return boundedBase
+        }
+        let candidate = boundedBase
+            + Double(clampedOffset(offset)) * frameDuration
+        return min(rangeEnd, max(rangeStart, candidate))
+    }
+
+    static func canStep(
+        base: Double,
+        frameDuration: Double,
+        offset: Int,
+        direction: Int,
+        rangeStart: Double,
+        rangeEnd: Double
+    ) -> Bool {
+        guard direction != 0 else { return false }
+        let currentOffset = clampedOffset(offset)
+        let nextOffset = clampedOffset(currentOffset + (direction < 0 ? -1 : 1))
+        guard nextOffset != currentOffset else { return false }
+        let currentTime = timestamp(
+            base: base,
+            frameDuration: frameDuration,
+            offset: currentOffset,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd
+        )
+        let nextTime = timestamp(
+            base: base,
+            frameDuration: frameDuration,
+            offset: nextOffset,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd
+        )
+        return nextTime != currentTime
+    }
+
+    static func label(for offset: Int) -> String {
+        let safeOffset = clampedOffset(offset)
+        guard safeOffset != 0 else { return "MATCHED FRAME" }
+        return safeOffset < 0
+            ? "\(abs(safeOffset)) BEFORE"
+            : "\(safeOffset) AFTER"
+    }
+
+    static func accessibilityValue(for offset: Int) -> String {
+        let safeOffset = clampedOffset(offset)
+        guard safeOffset != 0 else { return "Matched evidence frame" }
+        let count = abs(safeOffset)
+        let unit = count == 1 ? "frame" : "frames"
+        return safeOffset < 0
+            ? "\(count) \(unit) before the matched frame"
+            : "\(count) \(unit) after the matched frame"
     }
 }

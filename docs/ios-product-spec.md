@@ -1,32 +1,32 @@
-# SwingLab iOS product specification
+# Replay Caddie iOS product specification
 
 ## Product promise
 
-SwingLab turns a phone video into a small number of evidence-backed golf swing
+Replay Caddie turns a phone video into a small number of evidence-backed golf swing
 observations. The app keeps source video and pose analysis on the device. It
 shows the exact frame behind each observation and separates measured evidence
 from a coaching hypothesis.
 
-SwingLab is an original product. Sparrow informed the capture-to-coaching
-workflow, but SwingLab does not use Sparrow branding, copy, scoring, models,
+Replay Caddie is an original product. Sparrow informed the capture-to-coaching
+workflow, but Replay Caddie does not use Sparrow branding, copy, scoring, models,
 assets, drills, or professional-golfer footage.
 
 ## First TestFlight journey
 
 1. The golfer opens a local swing library.
 2. The golfer selects a video from the system Photos picker.
-3. SwingLab copies the selected file into its private application storage.
-4. SwingLab scans the full imported source on-device and offers each
+3. Replay Caddie copies the selected file into its private application storage.
+4. Replay Caddie scans the full imported source on-device and offers each
    complete detected swing as a nondestructive clip range. The golfer can
    cancel, retry, or use manual trim at any time.
 5. The golfer chooses a detected clip and refines its frame-snapped in/out
    points, or trims one swing manually.
 6. The golfer selects camera view, handedness, and club.
-7. SwingLab analyzes only the selected range and shows progress.
+7. Replay Caddie analyzes only the selected range and shows progress.
 8. The review screen plays the swing with a body overlay and event markers.
 9. Selecting a finding seeks to and freezes its evidence frame.
 10. The comparison screen aligns that phase with one of the golfer's own saved
-   "Best Swing" clips or a locally imported private reference. Private imports
+   swings or a locally imported private reference. Private imports
    remain visibly unverified. The same boundary can accept verified catalog
    footage later.
 11. The completed analysis remains in the local library.
@@ -62,7 +62,7 @@ to the torso, phase timing, and repeatability. It may label loss of posture,
 hands moving inside, or an over-the-top pattern only when the camera view and
 pose evidence support that language.
 
-SwingLab does not claim clubface angle, attack angle, dynamic loft, ball flight,
+Replay Caddie does not claim clubface angle, attack angle, dynamic loft, ball flight,
 pressure, exact club path, or a reconstructed second camera view from a single
 ordinary phone video.
 
@@ -73,7 +73,7 @@ The app preserves the original user and reference frames. It does not warp a
 golfer into a fake view.
 
 Only footage with explicit distribution rights can ship in the application.
-The current interaction supports the local Best Swing feature and private
+The current interaction supports local saved-swing comparison and private
 user-imported references. Private imports are stored locally, labeled
 unverified, and never treated as distribution-ready. Future distributed
 reference media must have a source, license, attribution, allowed-use record,
@@ -90,7 +90,7 @@ and an internally verified rights status.
 
 ## Acceptance status
 
-- Complete: 79 native tests cover trim invariants, automatic multi-swing
+- Complete: 88 native tests cover trim invariants, automatic multi-swing
   discovery, noise and duplicate rejection, geometry, event ordering, scoring,
   confidence, critique thresholds, persistence, and media ownership.
 - Complete: the real Photos picker, import, trim, clip-position, and analysis
@@ -105,5 +105,7 @@ and an internally verified rights status.
   in the local Xcode project; no signing credential is committed.
 - Complete: Developer Mode is enabled, signing includes the paired iPhone, and
   a development build installs and launches on that device.
-- Pending: choose the shipping name, create the App Store Connect record,
-  upload the archive, wait for processing, and install through TestFlight.
+- Complete: the shipping name and bundle identifier are Replay Caddie and
+  `com.peterargany.replaycaddie`.
+- Pending: create the App Store Connect record, upload the archive, wait for
+  processing, and install through TestFlight.

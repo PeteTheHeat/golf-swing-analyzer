@@ -17,6 +17,7 @@ public enum SwingFindingSeverity: String, Codable, CaseIterable, Sendable {
 public struct SwingAnalysisContext: Codable, Hashable, Sendable {
     public var cameraView: SwingCameraView
     public var handedness: GolferHandedness
+    public var club: SwingClub
     public var sampleRate: Double
     public var minimumJointConfidence: Double
     public var orientationOverride: PoseVideoOrientation?
@@ -24,15 +25,42 @@ public struct SwingAnalysisContext: Codable, Hashable, Sendable {
     public init(
         cameraView: SwingCameraView = .unknown,
         handedness: GolferHandedness = .right,
+        club: SwingClub = .unknown,
         sampleRate: Double = 15,
         minimumJointConfidence: Double = 0.30,
         orientationOverride: PoseVideoOrientation? = nil
     ) {
         self.cameraView = cameraView
         self.handedness = handedness
+        self.club = club
         self.sampleRate = max(5, min(sampleRate, 30))
         self.minimumJointConfidence = max(0.1, min(minimumJointConfidence, 0.9))
         self.orientationOverride = orientationOverride
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case cameraView
+        case handedness
+        case club
+        case sampleRate
+        case minimumJointConfidence
+        case orientationOverride
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        cameraView = try container.decode(SwingCameraView.self, forKey: .cameraView)
+        handedness = try container.decode(GolferHandedness.self, forKey: .handedness)
+        club = try container.decodeIfPresent(SwingClub.self, forKey: .club) ?? .unknown
+        sampleRate = try container.decode(Double.self, forKey: .sampleRate)
+        minimumJointConfidence = try container.decode(
+            Double.self,
+            forKey: .minimumJointConfidence
+        )
+        orientationOverride = try container.decodeIfPresent(
+            PoseVideoOrientation.self,
+            forKey: .orientationOverride
+        )
     }
 }
 

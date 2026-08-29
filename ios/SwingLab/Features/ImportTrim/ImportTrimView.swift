@@ -84,10 +84,10 @@ public struct ImportTrimView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("SwingLab")
+                    Text("Replay Caddie")
                         .font(.system(.title3, design: .rounded, weight: .bold))
                         .foregroundStyle(Color(red: 1, green: 0.42, blue: 0.34))
-                    Text("See the move.\nOwn the fix.")
+                    Text("See the frame.\nFix the swing.")
                         .font(.system(size: 40, weight: .bold, design: .rounded))
                         .tracking(-1.2)
                         .foregroundStyle(Color(red: 0.97, green: 0.94, blue: 0.86))
@@ -128,7 +128,7 @@ public struct ImportTrimView: View {
             case .idle:
                 Text("Import a swing")
                     .font(.title3.weight(.bold))
-                Text("Pick a video from your camera roll. SwingLab makes a private working copy for analysis.")
+                Text("Pick a video from your camera roll. Replay Caddie makes a private working copy for analysis.")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white.opacity(0.62))
 
@@ -137,7 +137,7 @@ public struct ImportTrimView: View {
             case .loading:
                 Text("Loading full-quality video…")
                     .font(.title3.weight(.bold))
-                Text("If this video is in iCloud, the download can take a moment. Keep SwingLab open.")
+                Text("If this video is in iCloud, the download can take a moment. Keep Replay Caddie open.")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white.opacity(0.62))
                 ProgressView()
@@ -612,7 +612,7 @@ private struct SwingDiscoveryView: View {
                 .accessibilityLabel("Choose another video")
             }
 
-            Text("SwingLab checks the full video on this iPhone. Found clips are time ranges on this one private copy—not new video files.")
+            Text("Replay Caddie checks the full video on this iPhone. Found clips are time ranges on this one private copy—not new video files.")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.62))
                 .fixedSize(horizontal: false, vertical: true)

@@ -4,7 +4,7 @@ import SwiftData
 
 enum SwingPersistence {
     private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.peterargany.SwingLab",
+        subsystem: Bundle.main.bundleIdentifier ?? "com.peterargany.replaycaddie",
         category: "Persistence"
     )
 
@@ -54,7 +54,7 @@ enum SwingPersistence {
         do {
             return try makeContainer(isStoredInMemoryOnly: true)
         } catch {
-            fatalError("Unable to create the SwingLab preview store: \(error.localizedDescription)")
+            fatalError("Unable to create the Replay Caddie preview store: \(error.localizedDescription)")
         }
     }()
 

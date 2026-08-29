@@ -5,6 +5,34 @@ import Testing
 @Suite("App persistence")
 @MainActor
 struct AppAndPersistenceTests {
+    @Test("Release identity reads display name, version, and build metadata")
+    func releaseIdentityMetadata() {
+        let identity = AppReleaseIdentity(infoDictionary: [
+            "CFBundleDisplayName": "  Test Fairway  ",
+            "CFBundleName": "InternalTarget",
+            "CFBundleShortVersionString": "2.3.4",
+            "CFBundleVersion": "57"
+        ])
+
+        #expect(identity.displayName == "Test Fairway")
+        #expect(identity.version == "2.3.4")
+        #expect(identity.build == "57")
+        #expect(identity.footerText == "Test Fairway 2.3.4 (57)")
+    }
+
+    @Test("Release identity uses safe fallbacks for missing metadata")
+    func releaseIdentityFallbacks() {
+        let targetFallback = AppReleaseIdentity(infoDictionary: [
+            "CFBundleDisplayName": " \n ",
+            "CFBundleName": "InternalTarget",
+            "CFBundleVersion": "8"
+        ])
+        let genericFallback = AppReleaseIdentity(infoDictionary: [:])
+
+        #expect(targetFallback.footerText == "InternalTarget build 8")
+        #expect(genericFallback.footerText == "Replay Caddie")
+    }
+
     @Test("A session stores clip and golfer context")
     func sessionFields() {
         let id = UUID()

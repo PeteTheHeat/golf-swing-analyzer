@@ -1,4 +1,4 @@
-# SwingLab iOS architecture
+# Replay Caddie iOS architecture
 
 ## Platform
 

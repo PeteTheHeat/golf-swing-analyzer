@@ -27,7 +27,7 @@ public enum GolferHandedness: String, Codable, CaseIterable, Sendable {
     }
 }
 
-enum SwingClub: String, Codable, CaseIterable, Sendable {
+public enum SwingClub: String, Codable, CaseIterable, Sendable {
     case driver
     case fairwayWood
     case hybrid

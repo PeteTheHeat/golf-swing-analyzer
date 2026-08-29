@@ -1,14 +1,12 @@
-# SwingLab for iOS
+# Replay Caddie for iOS
 
-SwingLab is a native SwiftUI app for selecting a golf video, finding complete
+Replay Caddie is a native SwiftUI app for selecting a golf video, finding complete
 swings anywhere in the imported footage, refining a clip, running local pose
 analysis, and reviewing frame-specific feedback. The visual system is original: dark
 charcoal surfaces, warm cream type, and a coral analysis accent.
 
-`SwingLab` is a working development name. Multiple golf apps already use that
-name in the App Store, so choose a distinct product name before creating the
-App Store Connect record. The code and bundle identifier can be renamed before
-the first upload.
+Replay Caddie is the shipping name. The internal Xcode project, target, scheme,
+and Swift module remain named `SwingLab` to keep the product rename low-risk.
 
 ## Requirements
 
@@ -24,7 +22,7 @@ xcodegen generate
 open SwingLab.xcodeproj
 ```
 
-Automatic signing is enabled, but the Apple team identifier is intentionally not committed. Select your development team for the `SwingLab` target in Xcode so that Xcode sets `DEVELOPMENT_TEAM` locally. Then select an iPhone simulator or connected iPhone and run the `SwingLab` scheme. The bundle identifier is `com.peterargany.SwingLab`.
+Automatic signing is enabled, but the Apple team identifier is intentionally not committed. Select your development team for the `SwingLab` target in Xcode so that Xcode sets `DEVELOPMENT_TEAM` locally. Then select an iPhone simulator or connected iPhone and run the `SwingLab` scheme. The bundle identifier is `com.peterargany.replaycaddie`.
 
 `project.yml` is the source of truth. Do not hand-edit the generated Xcode project.
 
@@ -63,7 +61,7 @@ on-device Vision run found two swings in each supplied video and completed all
 four analyses. The physical Photos-picker, saved-review, and comparison UI
 journeys still need final manual checks before the beta upload.
 
-1. Choose a distinct shipping name and create its App Store Connect record.
+1. Create the Replay Caddie App Store Connect record.
 2. Set the development team and confirm signing in Xcode.
 3. Test Photos import and Vision analysis on a physical iPhone.
 4. Run the `SwingLabTests` scheme tests.
@@ -78,7 +76,7 @@ For simulator-only review and comparison UI QA, launch a Debug build with:
 
 ```bash
 SIMCTL_CHILD_SWINGLAB_USE_SIMULATOR_POSE_FIXTURE=1 \
-  xcrun simctl launch <device-id> com.peterargany.SwingLab
+  xcrun simctl launch <device-id> com.peterargany.replaycaddie
 ```
 
 Fixture results are capped at 50% confidence and state that their pose evidence

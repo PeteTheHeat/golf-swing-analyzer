@@ -125,7 +125,7 @@ final class AnalysisFlowModel: ObservableObject {
         guard isSafeRelativeFilename(relativePath) else {
             failure = AnalysisFlowFailure(
                 title: "Video could not be saved",
-                message: "SwingLab could not create a safe local reference for this video. Choose it again."
+                message: "Replay Caddie could not create a safe local reference for this video. Choose it again."
             )
             return
         }
@@ -151,7 +151,7 @@ final class AnalysisFlowModel: ObservableObject {
         } catch {
             failure = AnalysisFlowFailure(
                 title: "Analysis could not start",
-                message: "SwingLab could not create a local session: \(error.localizedDescription)"
+                message: "Replay Caddie could not create a local session: \(error.localizedDescription)"
             )
             return
         }
@@ -161,7 +161,8 @@ final class AnalysisFlowModel: ObservableObject {
 
         let analysisContext = SwingAnalysisContext(
             cameraView: SwingCameraView(input.cameraAngle),
-            handedness: GolferHandedness(input.handedness)
+            handedness: GolferHandedness(input.handedness),
+            club: SwingClub(input.club)
         )
         let progress = SwingAnalysisProgress()
 

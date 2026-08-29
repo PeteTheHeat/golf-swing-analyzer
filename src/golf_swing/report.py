@@ -138,7 +138,7 @@ def write_video_report(
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(info.path.name)} · Golf swing analysis</title><style>{CSS}</style></head>
 <body><main>
-  <div class="eyebrow">SwingLab · evidence report</div>
+  <div class="eyebrow">Replay Caddie · evidence report</div>
   <h1>{html.escape(info.path.name)}</h1>
   <p class="lede">{len(results)} driver swings found in a {_format_time(info.duration)} portrait video. The report links every observation to measured pose geometry or event timing.</p>
   <div class="meta">
@@ -184,7 +184,7 @@ def write_collection_index(
     )
     document = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Golf swing analysis</title><style>{CSS}</style></head><body><main>
-<div class="eyebrow">SwingLab · analysis collection</div><h1>Golf swing evidence</h1>
+<div class="eyebrow">Replay Caddie · analysis collection</div><h1>Golf swing evidence</h1>
 <p class="lede">Local reports for {sum(item["swings"] for item in reports)} detected swings.</p>
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">{"".join(cards)}</div>
 {summary}

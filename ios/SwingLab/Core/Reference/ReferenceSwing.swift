@@ -266,8 +266,7 @@ enum BundledReferenceCatalog {
         ) else {
             throw BundledReferenceCatalogError.invalidAnalysis(entry.id)
         }
-        guard analysis.context.cameraView == entry.cameraView,
-              analysis.context.handedness == entry.handedness else {
+        guard analysisMetadataMatches(analysis.context, entry: entry) else {
             throw BundledReferenceCatalogError.metadataMismatch(entry.id)
         }
 
@@ -291,6 +290,15 @@ enum BundledReferenceCatalog {
             video: video,
             analysis: analysis
         )
+    }
+
+    static func analysisMetadataMatches(
+        _ context: SwingAnalysisContext,
+        entry: BundledReferenceManifestEntry
+    ) -> Bool {
+        context.cameraView == entry.cameraView
+            && context.handedness == entry.handedness
+            && (context.club == .unknown || context.club == entry.club)
     }
 
     static func analysisTimelineIsValid(

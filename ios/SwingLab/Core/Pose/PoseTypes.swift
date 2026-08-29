@@ -153,9 +153,9 @@ public enum PoseExtractionError: LocalizedError, Sendable, Equatable {
             "Select at least one second of valid video."
         case let .visionUnavailable(message):
             #if targetEnvironment(simulator)
-            "The iOS Simulator does not include the body-pose model required for this analysis. Run SwingLab on a physical iPhone. System detail: \(message)"
+            "The iOS Simulator does not include the body-pose model required for this analysis. Run Replay Caddie on a physical iPhone. System detail: \(message)"
             #else
-            "Apple Vision could not start body-pose analysis. Restart SwingLab and try again. System detail: \(message)"
+            "Apple Vision could not start body-pose analysis. Restart Replay Caddie and try again. System detail: \(message)"
             #endif
         case let .cannotCreateReader(message):
             "The video reader could not be created: \(message)"

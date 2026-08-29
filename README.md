@@ -1,4 +1,4 @@
-# Golf Swing Analyzer
+# Replay Caddie
 
 A local-first command-line tool that finds complete swings in ordinary phone
 video, measures body pose at key events, and creates an evidence-linked HTML
@@ -8,7 +8,7 @@ The first version is deliberately conservative. It measures what a single
 camera can support and labels every angle as a 2D projection. It does not invent
 club or ball data when the video cannot provide it.
 
-## Native iPhone app: SwingLab
+## Native iPhone app
 
 The repository now also contains a native SwiftUI app in [`ios/`](ios/). It is
 an original, local-first product for iOS 17 and newer. The current app can:
@@ -30,7 +30,7 @@ an original, local-first product for iOS 17 and newer. The current app can:
 - preserve completed reviews in a local SwiftData history;
 - delete a saved swing and its uniquely owned local media;
 - save an imported clip as a clearly labeled private, unverified reference;
-- phase-match a swing against a saved Best Swing or private reference;
+- phase-match a swing against another saved swing or private reference;
 - keep private imports separate from a fail-closed bundled-reference catalog,
   whose verified entries require allowed-use, license, attribution, source,
   media, and analysis metadata.
@@ -168,8 +168,7 @@ no network calls during analysis.
 
 ## Current roadmap
 
-1. Choose the shipping name and bundle identifier, then upload the first
-   internal TestFlight build.
+1. Upload the first Replay Caddie internal TestFlight build.
 2. Validate automatic multi-swing discovery against a larger range of real
    phone videos.
 3. Add manual phase correction and an exported annotated slow-motion clip.
