@@ -27,7 +27,10 @@ actor VideoPoseExtractor {
         (.rightAnkle, .rightAnkle),
     ]
 
-    func extract(
+    /// All AVFoundation and Vision objects are call-local. Keeping this method
+    /// nonisolated avoids sending older-SDK `AVAssetTrack` values across this
+    /// actor boundary while preserving actor checking for any future state.
+    nonisolated func extract(
         videoURL: URL,
         selectedRange: CMTimeRange,
         sampleRate: Double,
