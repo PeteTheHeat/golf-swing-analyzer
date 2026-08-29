@@ -22,6 +22,7 @@ public actor VideoThumbnailGenerator {
 
     public func thumbnails(
         for video: ImportedVideo,
+        range: CMTimeRange? = nil,
         count: Int,
         maximumSize: CGSize = CGSize(width: 320, height: 180)
     ) async throws -> [VideoThumbnail] {
@@ -41,12 +42,51 @@ public actor VideoThumbnailGenerator {
         generator.requestedTimeToleranceBefore = tolerance
         generator.requestedTimeToleranceAfter = tolerance
 
-        let requestedTimes = makeRequestedTimes(video: video, count: count)
+        let usesSelectedRange: Bool
+        if let range {
+            usesSelectedRange = range.start.isNumeric
+                && range.duration.isNumeric
+                && range.duration.seconds > 0
+        } else {
+            usesSelectedRange = false
+        }
+        let requestedTimes = ThumbnailTimeSampler.seconds(
+            videoDuration: video.durationSeconds,
+            frameDuration: video.frameDurationSeconds,
+            rangeStart: range?.start.seconds,
+            rangeDuration: range?.duration.seconds,
+            count: count
+        ).map {
+            CMTime(seconds: $0, preferredTimescale: 60_000)
+        }
         var thumbnails: [VideoThumbnail] = []
         thumbnails.reserveCapacity(requestedTimes.count)
 
         for (index, requestedTime) in requestedTimes.enumerated() {
             try Task.checkCancellation()
+            // Keep tolerance inside the selected swing. Interior requests can
+            // still use nearby keyframes, while edge requests become exact.
+            if usesSelectedRange,
+               let firstTime = requestedTimes.first?.seconds,
+               let lastTime = requestedTimes.last?.seconds {
+                generator.requestedTimeToleranceBefore = CMTime(
+                    seconds: min(
+                        tolerance.seconds,
+                        max(0, requestedTime.seconds - firstTime)
+                    ),
+                    preferredTimescale: 60_000
+                )
+                generator.requestedTimeToleranceAfter = CMTime(
+                    seconds: min(
+                        tolerance.seconds,
+                        max(0, lastTime - requestedTime.seconds)
+                    ),
+                    preferredTimescale: 60_000
+                )
+            } else {
+                generator.requestedTimeToleranceBefore = tolerance
+                generator.requestedTimeToleranceAfter = tolerance
+            }
             do {
                 let (image, actualTime) = try await generator.image(at: requestedTime)
                 thumbnails.append(
@@ -71,22 +111,42 @@ public actor VideoThumbnailGenerator {
         }
         return thumbnails
     }
+}
 
-    private func makeRequestedTimes(video: ImportedVideo, count: Int) -> [CMTime] {
-        let duration = video.durationSeconds
-        guard duration > 0 else { return [.zero] }
+enum ThumbnailTimeSampler {
+    static func seconds(
+        videoDuration: Double,
+        frameDuration: Double,
+        rangeStart: Double? = nil,
+        rangeDuration: Double? = nil,
+        count: Int
+    ) -> [Double] {
+        guard count > 0 else { return [] }
+        guard videoDuration.isFinite, videoDuration > 0 else { return [0] }
 
-        let lastSafeTime = max(0, duration - video.frameDurationSeconds)
-        guard count > 1 else {
-            return [CMTime(seconds: lastSafeTime / 2, preferredTimescale: 60_000)]
+        let safeFrameDuration = frameDuration.isFinite && frameDuration > 0
+            ? frameDuration
+            : 1 / 30
+        let videoEnd = max(0, videoDuration - safeFrameDuration)
+
+        let requestedStart = rangeStart.flatMap { $0.isFinite ? $0 : nil }
+        let requestedDuration = rangeDuration.flatMap {
+            $0.isFinite && $0 > 0 ? $0 : nil
+        }
+        let start: Double
+        let end: Double
+        if let requestedStart, let requestedDuration {
+            start = min(videoEnd, max(0, requestedStart))
+            end = min(videoEnd, max(start, requestedStart + requestedDuration - safeFrameDuration))
+        } else {
+            start = 0
+            end = videoEnd
         }
 
+        guard count > 1 else { return [(start + end) / 2] }
         return (0 ..< count).map { index in
             let progress = Double(index) / Double(count - 1)
-            return CMTime(
-                seconds: lastSafeTime * progress,
-                preferredTimescale: 60_000
-            )
+            return start + (end - start) * progress
         }
     }
 }

@@ -90,7 +90,7 @@ and an internally verified rights status.
 
 ## Acceptance status
 
-- Complete: 88 native tests cover trim invariants, automatic multi-swing
+- Complete: 93 native tests cover trim invariants, automatic multi-swing
   discovery, noise and duplicate rejection, geometry, event ordering, scoring,
   confidence, critique thresholds, persistence, and media ownership.
 - Complete: the real Photos picker, import, trim, clip-position, and analysis

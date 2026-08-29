@@ -106,6 +106,98 @@ final class TrimSelectionTests: XCTestCase {
         XCTAssertEqual(selection.end, 3.08, accuracy: 0.000_001)
     }
 
+    func testThumbnailTimesStayInsideTheSelectedSwingRange() {
+        let times = ThumbnailTimeSampler.seconds(
+            videoDuration: 100,
+            frameDuration: 1 / 30,
+            rangeStart: 35.5,
+            rangeDuration: 4,
+            count: 3
+        )
+
+        XCTAssertEqual(times.count, 3)
+        XCTAssertEqual(times[0], 35.5, accuracy: 0.000_001)
+        XCTAssertEqual(times[1], 37.483_333, accuracy: 0.000_001)
+        XCTAssertEqual(times[2], 39.466_667, accuracy: 0.000_001)
+    }
+
+    func testThumbnailTimesUseFullVideoWhenRangeMetadataIsInvalid() {
+        let times = ThumbnailTimeSampler.seconds(
+            videoDuration: 10,
+            frameDuration: 0.1,
+            rangeStart: .nan,
+            rangeDuration: -1,
+            count: 3
+        )
+
+        XCTAssertEqual(times, [0, 4.95, 9.9])
+        XCTAssertTrue(ThumbnailTimeSampler.seconds(
+            videoDuration: 10,
+            frameDuration: 0.1,
+            count: 0
+        ).isEmpty)
+    }
+
+    func testSingleThumbnailUsesTheSelectedRangeMidpoint() {
+        let times = ThumbnailTimeSampler.seconds(
+            videoDuration: 10,
+            frameDuration: 0.1,
+            rangeStart: 2,
+            rangeDuration: 4,
+            count: 1
+        )
+
+        XCTAssertEqual(times, [3.95])
+    }
+
+    func testThumbnailTimesClampAnOverhangingRangeToTheVideo() {
+        let times = ThumbnailTimeSampler.seconds(
+            videoDuration: 10,
+            frameDuration: 0.1,
+            rangeStart: 9.8,
+            rangeDuration: 2,
+            count: 3
+        )
+
+        XCTAssertEqual(times.count, 3)
+        XCTAssertEqual(times[0], 9.8, accuracy: 0.000_001)
+        XCTAssertEqual(times[1], 9.85, accuracy: 0.000_001)
+        XCTAssertEqual(times[2], 9.9, accuracy: 0.000_001)
+        XCTAssertTrue(times.allSatisfy { $0 >= 9.8 && $0 < 10 })
+    }
+
+    func testReviewTimelineAccessibilityStepsByOneFrameAndClamps() throws {
+        XCTAssertEqual(
+            try XCTUnwrap(ReviewTimelineAccessibility.adjustedTime(
+                currentTime: 2,
+                frameDuration: 0.04,
+                direction: 1,
+                rangeStart: 1,
+                rangeEnd: 3
+            )),
+            2.04,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(ReviewTimelineAccessibility.adjustedTime(
+                currentTime: 1,
+                frameDuration: 0.04,
+                direction: -1,
+                rangeStart: 1,
+                rangeEnd: 3
+            )),
+            1,
+            accuracy: 0.000_001
+        )
+        XCTAssertNil(ReviewTimelineAccessibility.adjustedTime(
+            currentTime: 2,
+            frameDuration: 0.04,
+            direction: 0,
+            rangeStart: 1,
+            rangeEnd: 3
+        ))
+    }
+
     func testMoveRangePreservesDurationAndClampsAtAssetBoundary() {
         var selection = TrimSelection(
             assetDuration: 10,

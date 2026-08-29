@@ -1,4 +1,5 @@
 import Accessibility
+import AVFoundation
 import SwiftUI
 
 struct SwingReviewView: View {
@@ -13,6 +14,9 @@ struct SwingReviewView: View {
     @StateObject private var playerController: VideoPlayerController
     @State private var selectedFindingID: String?
     @State private var showsAnalysis = true
+    @State private var timelineThumbnails: [VideoThumbnail] = []
+
+    private let thumbnailGenerator = VideoThumbnailGenerator()
 
     init(
         video: ImportedVideo,
@@ -126,6 +130,9 @@ struct SwingReviewView: View {
                 playerController.seek(to: analysis.events.addressSeconds)
             }
         }
+        .task(id: thumbnailRequestID) {
+            await loadTimelineThumbnails()
+        }
     }
 
     private var playerStage: some View {
@@ -218,10 +225,13 @@ struct SwingReviewView: View {
     private var controlDeck: some View {
         VStack(spacing: SwingTheme.Spacing.medium) {
             ReviewTimeline(
+                thumbnails: timelineThumbnails,
+                thumbnailSlotCount: ReviewFilmstrip.thumbnailCount,
                 rangeStart: analysis.poseTrack.selectedRangeStartSeconds,
                 rangeEnd: analysis.poseTrack.selectedRangeStartSeconds
                     + analysis.poseTrack.selectedRangeDurationSeconds,
                 currentTime: playerController.currentTime,
+                frameDuration: video.frameDurationSeconds,
                 events: analysis.events,
                 findings: analysis.findings,
                 evidenceTime: evidenceTime(for:),
@@ -423,6 +433,37 @@ struct SwingReviewView: View {
             ?? analysis.events[finding.phase]
     }
 
+    private func loadTimelineThumbnails() async {
+        timelineThumbnails = []
+        do {
+            let values = try await thumbnailGenerator.thumbnails(
+                for: video,
+                range: playbackSelection(
+                    for: analysis.poseTrack,
+                    video: video
+                ).timeRange,
+                count: ReviewFilmstrip.thumbnailCount,
+                maximumSize: CGSize(width: 180, height: 120)
+            )
+            guard !Task.isCancelled else { return }
+            timelineThumbnails = values
+        } catch is CancellationError {
+            return
+        } catch {
+            // The marker rail remains fully usable when a damaged GOP prevents
+            // optional thumbnail generation.
+            timelineThumbnails = []
+        }
+    }
+
+    private var thumbnailRequestID: ReviewThumbnailRequestID {
+        ReviewThumbnailRequestID(
+            videoID: video.id,
+            rangeStart: analysis.poseTrack.selectedRangeStartSeconds,
+            rangeDuration: analysis.poseTrack.selectedRangeDurationSeconds
+        )
+    }
+
     private func evidence(withID id: String?) -> SwingEvidence? {
         guard let id else { return nil }
         return analysis.evidence.first { $0.id == id }
@@ -465,6 +506,16 @@ struct SwingReviewView: View {
 
 private enum ReviewScrollAnchor: Hashable {
     case evidence
+}
+
+private enum ReviewFilmstrip {
+    static let thumbnailCount = 9
+}
+
+private struct ReviewThumbnailRequestID: Hashable {
+    let videoID: UUID
+    let rangeStart: Double
+    let rangeDuration: Double
 }
 
 enum ReviewEvidenceRevealPolicy {
@@ -580,9 +631,12 @@ private struct AnalysisFindingCard: View {
 }
 
 private struct ReviewTimeline: View {
+    let thumbnails: [VideoThumbnail]
+    let thumbnailSlotCount: Int
     let rangeStart: Double
     let rangeEnd: Double
     let currentTime: Double
+    let frameDuration: Double
     let events: SwingEventTimestamps
     let findings: [SwingFinding]
     let evidenceTime: (SwingFinding) -> Double
@@ -593,9 +647,7 @@ private struct ReviewTimeline: View {
         GeometryReader { proxy in
             let width = max(1, proxy.size.width)
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(SwingTheme.elevated)
-                    .frame(height: 34)
+                timelineBackground(width: width)
 
                 ForEach(SwingPhase.allCases, id: \.self) { phase in
                     eventMarker(phase, width: width)
@@ -630,7 +682,67 @@ private struct ReviewTimeline: View {
             )
         }
         .frame(height: 46)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Swing timeline")
+        .accessibilityValue(
+            Text(
+                "\(accessibilityElapsed, format: .number.precision(.fractionLength(1))) seconds of \(accessibilityDuration, format: .number.precision(.fractionLength(1)))"
+            )
+        )
+        .accessibilityAdjustableAction { direction in
+            let stepDirection: Int
+            switch direction {
+            case .increment:
+                stepDirection = 1
+            case .decrement:
+                stepDirection = -1
+            @unknown default:
+                return
+            }
+            guard let time = ReviewTimelineAccessibility.adjustedTime(
+                currentTime: currentTime,
+                frameDuration: frameDuration,
+                direction: stepDirection,
+                rangeStart: rangeStart,
+                rangeEnd: rangeEnd
+            ) else { return }
+            onScrub(time)
+        }
+    }
+
+    @ViewBuilder
+    private func timelineBackground(width: CGFloat) -> some View {
+        if thumbnails.isEmpty {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(SwingTheme.elevated)
+                .frame(height: 34)
+        } else {
+            let safeSlotCount = max(1, thumbnailSlotCount)
+            let slotWidth = max(
+                1,
+                (width - CGFloat(safeSlotCount - 1)) / CGFloat(safeSlotCount)
+            )
+            HStack(spacing: 1) {
+                ForEach(0 ..< safeSlotCount, id: \.self) { slot in
+                    Group {
+                        if let thumbnail = thumbnails.first(where: { $0.id == slot }) {
+                            Image(decorative: thumbnail.image, scale: 1)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Color.clear
+                        }
+                    }
+                    .frame(width: slotWidth, height: 34)
+                    .clipped()
+                }
+            }
+            .frame(width: width, height: 34, alignment: .leading)
+            .background(SwingTheme.elevated)
+            .overlay(.black.opacity(0.18))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .accessibilityHidden(true)
+        }
     }
 
     private func eventMarker(_ phase: SwingPhase, width: CGFloat) -> some View {
@@ -645,5 +757,45 @@ private struct ReviewTimeline: View {
         guard rangeEnd > rangeStart else { return 0 }
         let fraction = min(1, max(0, (time - rangeStart) / (rangeEnd - rangeStart)))
         return width * fraction
+    }
+
+    private var accessibilityDuration: Double {
+        guard rangeStart.isFinite, rangeEnd.isFinite else { return 0 }
+        return max(0, rangeEnd - rangeStart)
+    }
+
+    private var accessibilityElapsed: Double {
+        guard currentTime.isFinite, rangeStart.isFinite else { return 0 }
+        return min(accessibilityDuration, max(0, currentTime - rangeStart))
+    }
+}
+
+enum ReviewTimelineAccessibility {
+    static func adjustedTime(
+        currentTime: Double,
+        frameDuration: Double,
+        direction: Int,
+        rangeStart: Double,
+        rangeEnd: Double
+    ) -> Double? {
+        guard direction != 0,
+              rangeStart.isFinite,
+              rangeEnd.isFinite,
+              rangeEnd >= rangeStart else {
+            return nil
+        }
+        let boundedCurrent = currentTime.isFinite
+            ? min(rangeEnd, max(rangeStart, currentTime))
+            : rangeStart
+        let safeFrameDuration = frameDuration.isFinite && frameDuration > 0
+            ? frameDuration
+            : 1 / 30
+        return min(
+            rangeEnd,
+            max(
+                rangeStart,
+                boundedCurrent + (direction < 0 ? -safeFrameDuration : safeFrameDuration)
+            )
+        )
     }
 }

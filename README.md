@@ -26,7 +26,8 @@ an original, local-first product for iOS 17 and newer. The current app can:
 - create a transparent 0–100 score with confidence-gated coaching notes;
 - link each finding to its evidence frame with metric-specific guides,
   highlighted joints, baseline comparisons, hand paths, and measured values;
-- scrub an annotated review timeline and step frame by frame;
+- scrub a selected-range thumbnail timeline with annotated evidence markers and
+  step frame by frame;
 - preserve completed reviews in a local SwiftData history;
 - delete a saved swing and its uniquely owned local media;
 - save an imported clip as a clearly labeled private, unverified reference;
@@ -40,6 +41,8 @@ analysis stay on the iPhone. Its reference architecture is rights-aware:
 user-imported footage is always private and unverified, while bundled entries
 surface only after their distribution rights and supporting metadata validate.
 No third-party reference footage ships in this repository yet.
+The [reference-footage clearance guide](docs/reference-footage-clearance.md)
+records the evidence required before a professional comparison can ship.
 
 Generate the Xcode project with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
